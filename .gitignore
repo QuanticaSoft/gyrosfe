@@ -1,0 +1,41 @@
+# Archivos de configuración sensibles
+/lib/db_config.php
+/_private/
+.mcp.json
+
+# Claude Code
+.claude/
+
+# Archivos de sesión PHP
+*.session
+
+# Logs
+*.log
+error_log
+access_log
+
+# Archivos temporales del sistema
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDEs
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Dependencias (si usas Composer en el futuro)
+/vendor/
+composer.lock
+
+# Cache
+/cache/
+/tmp/
+
+# Archivos de backup
+*.bak
+*.backup
+*~
