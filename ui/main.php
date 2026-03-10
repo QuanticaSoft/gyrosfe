@@ -32,18 +32,19 @@ try {
 }
 
 // -------------------------------------------------------------------------------------
-// Query: dispositivos ACTUALMENTE ONLINE + físicamente conectados
-// — Un registro por serial (el evento más reciente)
+// Query: dispositivos ACTUALMENTE CONECTADOS al USB del agente
+// — Fuente de verdad: UsbDeviceState (estado en tiempo real, actualizado por el agente)
+// — Solo status = 'connected'
 // — Solo agentes con lastSeen dentro del umbral (ONLINE)
-// — Solo dispositivos con Dispositivos.status = 'connected'
+// — Estado válido: lastChangeAt >= arranque del agente (lastSeen - uptimeSec)
+//   Esto descarta estados obsoletos de sesiones anteriores del agente
 // -------------------------------------------------------------------------------------
 $sqlUsb = <<<'SQL'
 SELECT
-  ue.id                                    AS ev_id,
-  ue."createdAt"                           AS ev_at,
-  ue.vendor                                AS ev_vendor,
-  ue.product                               AS ev_product,
-  ue.serial                                AS ev_serial,
+  uds.serial                               AS ev_serial,
+  uds.vendor                               AS ev_vendor,
+  uds.product                              AS ev_product,
+  uds."lastChangeAt"                       AS ev_at,
 
   a."agentId"                              AS ag_agentId,
   a.hostname                               AS ag_hostname,
@@ -56,26 +57,26 @@ SELECT
   cl."isActive"                            AS cl_activo,
   cl.fecharegistro                         AS cl_fecharegistro
 
-FROM (
-    -- Último evento connect por serial
-    SELECT DISTINCT ON (ue2.serial)
-        ue2.id, ue2."createdAt", ue2.vendor, ue2.product, ue2.serial, ue2."agentId"
-    FROM "UsbEvent" ue2
-    WHERE ue2.action = 'connect'
-    ORDER BY ue2.serial, ue2."createdAt" DESC
-) ue
-JOIN "Agent" a ON a.id = ue."agentId"
-JOIN "UsbDeviceState" uds ON uds."agentId" = ue."agentId"
-                          AND uds.serial    = ue.serial
-LEFT JOIN "Cliente" cl ON cl.dispositivo = ue.serial
+FROM "UsbDeviceState" uds
+JOIN "Agent" a ON a.id = uds."agentId"
+LEFT JOIN LATERAL (
+    SELECT "uptimeSec"
+    FROM "Heartbeat"
+    WHERE "agentId" = a.id
+    ORDER BY "createdAt" DESC
+    LIMIT 1
+) hb ON true
+LEFT JOIN "Cliente" cl ON cl.dispositivo = uds.serial
 
 WHERE
+    -- Dispositivo físicamente conectado AHORA
+    lower(uds.status) = 'connected'
     -- Agente ONLINE: lastSeen dentro del umbral
-    EXTRACT(EPOCH FROM (now() - a."lastSeen"))::int <= :threshold
-    -- Dispositivo físicamente conectado (según UsbDeviceState, donde el agente escribe)
-    AND lower(uds.status) = 'connected'
+    AND EXTRACT(EPOCH FROM (now() - a."lastSeen"))::int <= :threshold
+    -- Estado reportado en la sesión actual del agente (no es un estado obsoleto de sesiones anteriores)
+    AND uds."lastChangeAt" >= (a."lastSeen" - COALESCE(hb."uptimeSec", 0) * interval '1 second')
 
-ORDER BY ue."createdAt" DESC
+ORDER BY uds."lastChangeAt" DESC
 SQL;
 
 $stmtUsb = $pdo->prepare($sqlUsb);
