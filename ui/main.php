@@ -53,8 +53,14 @@ SELECT
   cl.nombrecompleto                        AS cl_nombre,
   cl.ci                                    AS cl_ci,
   cl.numerocelular                         AS cl_celular,
+  cl.numerofijo                            AS cl_fijo,
+  cl.vtotarjeta                            AS cl_vtotarjeta,
+  cl.codigo                                AS cl_codigo,
   cl.sector                                AS cl_sector,
   cl."isActive"                            AS cl_activo,
+  cl.garantenombre                         AS cl_garantenombre,
+  cl.garantecelular                        AS cl_garantecelular,
+  cl.observaciones                         AS cl_observaciones,
   cl.fecharegistro                         AS cl_fecharegistro
 
 FROM "UsbDeviceState" uds
@@ -231,6 +237,33 @@ header('Content-Type: text/html; charset=utf-8');
             color: #9aa0b8;
         }
         .device-info-bar span { color: #c8d0ea; margin-left: 4px; }
+
+        /* ── Layout de 2 columnas dentro del modal ──────────────── */
+        .form-row {
+            display: grid;
+            gap: 0 14px;
+        }
+        .form-row.col2 { grid-template-columns: 1fr 1fr; }
+        .form-row.col3 { grid-template-columns: 1fr 1fr 1fr; }
+
+        /* ── Separador de sección dentro del modal ──────────────── */
+        .form-section {
+            margin-top: 16px;
+            padding-top: 10px;
+            border-top: 1px solid #33374d;
+            font-size: .78rem;
+            font-weight: 700;
+            color: #c8d0ea;
+            letter-spacing: .06em;
+        }
+
+        /* modal más ancho para caber los nuevos campos */
+        #modal-registrar .modal-box,
+        #modal-editar .modal-box {
+            max-width: 640px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
     </style>
 </head>
 
@@ -296,12 +329,18 @@ header('Content-Type: text/html; charset=utf-8');
             $registrado  = ($clienteUuid !== '');
 
             // ── Datos cliente (para modal 📝) ──────────────────────
-            $clNombre  = esc((string) ($r['cl_nombre']       ?? ''));
-            $clCi      = esc((string) ($r['cl_ci']           ?? ''));
-            $clCelular = esc((string) ($r['cl_celular']      ?? ''));
-            $clSector  = esc((string) ($r['cl_sector']       ?? ''));
-            $clActivo  = !empty($r['cl_activo']) ? 'Sí' : 'No';
-            $clFecha   = !empty($r['cl_fecharegistro'])
+            $clNombre        = esc((string) ($r['cl_nombre']        ?? ''));
+            $clCi            = esc((string) ($r['cl_ci']            ?? ''));
+            $clCelular       = esc((string) ($r['cl_celular']       ?? ''));
+            $clFijo          = esc((string) ($r['cl_fijo']          ?? ''));
+            $clVtoTarjeta    = esc((string) ($r['cl_vtotarjeta']    ?? ''));
+            $clCodigo        = esc((string) ($r['cl_codigo']        ?? ''));
+            $clSector        = esc((string) ($r['cl_sector']        ?? ''));
+            $clActivo        = !empty($r['cl_activo']) ? 'Sí' : 'No';
+            $clGaranteNombre = esc((string) ($r['cl_garantenombre'] ?? ''));
+            $clGaranteCel    = esc((string) ($r['cl_garantecelular']?? ''));
+            $clObservaciones = esc((string) ($r['cl_observaciones'] ?? ''));
+            $clFecha         = !empty($r['cl_fecharegistro'])
                 ? (new DateTimeImmutable($r['cl_fecharegistro'], new DateTimeZone('UTC')))->format('Y-m-d H:i')
                 : '—';
         ?>
@@ -355,8 +394,14 @@ header('Content-Type: text/html; charset=utf-8');
                             '<?= $clNombre ?>',
                             '<?= $clCi ?>',
                             '<?= $clCelular ?>',
+                            '<?= $clFijo ?>',
+                            '<?= $clVtoTarjeta ?>',
+                            '<?= $clCodigo ?>',
                             '<?= $clSector ?>',
                             '<?= $clActivo ?>',
+                            '<?= addslashes($clGaranteNombre) ?>',
+                            '<?= $clGaranteCel ?>',
+                            '<?= addslashes($clObservaciones) ?>',
                             '<?= $clFecha ?>'
                         )"
                     >📝</button>
@@ -383,20 +428,59 @@ header('Content-Type: text/html; charset=utf-8');
                 <input type="hidden" id="reg-agentId" name="agentId">
 
                 <label>Nombre Completo *</label>
-                <input type="text" id="reg-nombre" name="nombrecompleto" required maxlength="120" placeholder="Ej: Juan Pérez">
+                <input type="text" id="reg-nombre" name="nombrecompleto" required maxlength="255" placeholder="Ej: Juan Pérez">
 
-                <label>CI / Cédula *</label>
-                <input type="text" id="reg-ci" name="ci" required maxlength="20" placeholder="Ej: 3456289">
+                <div class="form-row col3">
+                    <div>
+                        <label>CI / Cédula *</label>
+                        <input type="text" id="reg-ci" name="ci" required maxlength="50" placeholder="Ej: 3456289">
+                    </div>
+                    <div>
+                        <label>Celular *</label>
+                        <input type="text" id="reg-celular" name="numerocelular" required maxlength="20" placeholder="Ej: 69123456">
+                    </div>
+                    <div>
+                        <label>Fijo</label>
+                        <input type="text" id="reg-fijo" name="numerofijo" maxlength="20" placeholder="Ej: 2123456">
+                    </div>
+                </div>
 
-                <label>Número Celular</label>
-                <input type="text" id="reg-celular" name="numerocelular" maxlength="20" placeholder="Ej: 12345678">
+                <div class="form-row col3">
+                    <div>
+                        <label>Vto. Tarjeta *</label>
+                        <input type="text" id="reg-vtotarjeta" name="vtotarjeta" required maxlength="10" placeholder="MM/AAAA">
+                    </div>
+                    <div>
+                        <label>Sector(Grupo) *</label>
+                        <select id="reg-sector" name="sector" required>
+                            <option value="">Seleccionar...</option>
+                            <option value="Magisterio">Magisterio</option>
+                            <option value="Salud">Salud</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Código *</label>
+                        <input type="text" id="reg-codigo" name="codigo" required maxlength="50" placeholder="Ej: COD-001">
+                    </div>
+                </div>
 
-                <label>Sector</label>
-                <select id="reg-sector" name="sector">
-                    <option value="">Seleccione un sector</option>
-                    <option value="Magisterio">Magisterio</option>
-                    <option value="Salud">Salud</option>
-                </select>
+                <div class="form-section">GARANTE</div>
+
+                <div class="form-row col2">
+                    <div>
+                        <label>Nombre Completo *</label>
+                        <input type="text" id="reg-garantenombre" name="garantenombre" required maxlength="255" placeholder="Ej: María López">
+                    </div>
+                    <div>
+                        <label>Celular *</label>
+                        <input type="text" id="reg-garantecelular" name="garantecelular" required maxlength="20" placeholder="Ej: 69987654">
+                    </div>
+                </div>
+
+                <label>Observaciones</label>
+                <textarea id="reg-observaciones" name="observaciones" maxlength="1000" rows="3"
+                    style="width:100%;box-sizing:border-box;padding:7px 10px;border-radius:6px;border:1px solid #33374d;background:#131624;color:#e0e4f0;font-size:.9rem;resize:vertical;"
+                    placeholder="Notas adicionales..."></textarea>
 
                 <div class="modal-actions">
                     <button type="button" class="btn-cancel" onclick="cerrarModal('modal-registrar')">Cancelar</button>
@@ -422,25 +506,72 @@ header('Content-Type: text/html; charset=utf-8');
                 <input type="hidden" id="edit-serial" name="serial">
 
                 <label>Nombre Completo *</label>
-                <input type="text" id="edit-nombre" name="nombrecompleto" required maxlength="120">
+                <input type="text" id="edit-nombre" name="nombrecompleto" required maxlength="255">
 
-                <label>CI / Cédula *</label>
-                <input type="text" id="edit-ci" name="ci" required maxlength="20">
+                <div class="form-row col3">
+                    <div>
+                        <label>CI / Cédula *</label>
+                        <input type="text" id="edit-ci" name="ci" required maxlength="50">
+                    </div>
+                    <div>
+                        <label>Celular *</label>
+                        <input type="text" id="edit-celular" name="numerocelular" required maxlength="20">
+                    </div>
+                    <div>
+                        <label>Fijo</label>
+                        <input type="text" id="edit-fijo" name="numerofijo" maxlength="20">
+                    </div>
+                </div>
 
-                <label>Número Celular</label>
-                <input type="text" id="edit-celular" name="numerocelular" maxlength="20">
+                <div class="form-row col3">
+                    <div>
+                        <label>Vto. Tarjeta *</label>
+                        <input type="text" id="edit-vtotarjeta" name="vtotarjeta" required maxlength="10">
+                    </div>
+                    <div>
+                        <label>Sector(Grupo) *</label>
+                        <select id="edit-sector" name="sector" required>
+                            <option value="">Seleccionar...</option>
+                            <option value="Magisterio">Magisterio</option>
+                            <option value="Salud">Salud</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Código *</label>
+                        <input type="text" id="edit-codigo" name="codigo" required maxlength="50">
+                    </div>
+                </div>
 
-                <label>Sector</label>
-                <input type="text" id="edit-sector" name="sector" maxlength="80">
+                <div class="form-row col2">
+                    <div>
+                        <label>Activo</label>
+                        <select id="edit-activo" name="isActive">
+                            <option value="1">Sí</option>
+                            <option value="0">No</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Fecha Registro</label>
+                        <input type="text" id="edit-fecharegistro" readonly style="opacity:.6;cursor:not-allowed;">
+                    </div>
+                </div>
 
-                <label>Activo</label>
-                <select id="edit-activo" name="isActive">
-                    <option value="1">Sí</option>
-                    <option value="0">No</option>
-                </select>
+                <div class="form-section">GARANTE</div>
 
-                <label>Fecha Registro</label>
-                <input type="text" id="edit-fecharegistro" name="fecharegistro" readonly>
+                <div class="form-row col2">
+                    <div>
+                        <label>Nombre Completo *</label>
+                        <input type="text" id="edit-garantenombre" name="garantenombre" required maxlength="255">
+                    </div>
+                    <div>
+                        <label>Celular *</label>
+                        <input type="text" id="edit-garantecelular" name="garantecelular" required maxlength="20">
+                    </div>
+                </div>
+
+                <label>Observaciones</label>
+                <textarea id="edit-observaciones" name="observaciones" maxlength="1000" rows="3"
+                    style="width:100%;box-sizing:border-box;padding:7px 10px;border-radius:6px;border:1px solid #33374d;background:#131624;color:#e0e4f0;font-size:.9rem;resize:vertical;"></textarea>
 
                 <div class="modal-actions">
                     <button type="button" class="btn-cancel" onclick="cerrarModal('modal-editar')">Cancelar</button>
@@ -521,15 +652,21 @@ header('Content-Type: text/html; charset=utf-8');
     }
 
     // ── Modal 📝 Editar ─────────────────────────────────────────
-    function abrirModalEditar(uuid, serial, dispositivo, nombre, ci, celular, sector, activo, fecharegistro) {
-        document.getElementById('edit-uuid').value          = uuid;
-        document.getElementById('edit-serial').value        = serial;
-        document.getElementById('edit-nombre').value        = nombre;
-        document.getElementById('edit-ci').value            = ci;
-        document.getElementById('edit-celular').value       = celular;
-        document.getElementById('edit-sector').value        = sector;
-        document.getElementById('edit-activo').value        = activo === 'Sí' ? '1' : '0';
-        document.getElementById('edit-fecharegistro').value = fecharegistro;
+    function abrirModalEditar(uuid, serial, dispositivo, nombre, ci, celular, fijo, vtotarjeta, codigo, sector, activo, garantenombre, garantecelular, observaciones, fecharegistro) {
+        document.getElementById('edit-uuid').value           = uuid;
+        document.getElementById('edit-serial').value         = serial;
+        document.getElementById('edit-nombre').value         = nombre;
+        document.getElementById('edit-ci').value             = ci;
+        document.getElementById('edit-celular').value        = celular;
+        document.getElementById('edit-fijo').value           = fijo;
+        document.getElementById('edit-vtotarjeta').value     = vtotarjeta;
+        document.getElementById('edit-codigo').value         = codigo;
+        document.getElementById('edit-sector').value         = sector;
+        document.getElementById('edit-activo').value         = activo === 'Sí' ? '1' : '0';
+        document.getElementById('edit-garantenombre').value  = garantenombre;
+        document.getElementById('edit-garantecelular').value = garantecelular;
+        document.getElementById('edit-observaciones').value  = observaciones;
+        document.getElementById('edit-fecharegistro').value  = fecharegistro;
         document.getElementById('edit-device-info').innerHTML =
             `Serial: <span>${serial}</span> &nbsp;|&nbsp; Dispositivo: <span>${dispositivo}</span>`;
         abrirModal('modal-editar');

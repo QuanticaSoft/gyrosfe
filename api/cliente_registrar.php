@@ -17,15 +17,27 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     jsonErr('Método no permitido', 405);
 }
 
-$serial        = trim((string) ($_POST['serial']         ?? ''));
+$serial         = trim((string) ($_POST['serial']         ?? ''));
 $nombrecompleto = trim((string) ($_POST['nombrecompleto'] ?? ''));
-$ci            = trim((string) ($_POST['ci']             ?? ''));
-$numerocelular = trim((string) ($_POST['numerocelular']  ?? ''));
-$sector        = trim((string) ($_POST['sector']         ?? ''));
+$ci             = trim((string) ($_POST['ci']             ?? ''));
+$numerocelular  = trim((string) ($_POST['numerocelular']  ?? ''));
+$numerofijo     = trim((string) ($_POST['numerofijo']     ?? ''));
+$vtotarjeta     = trim((string) ($_POST['vtotarjeta']     ?? ''));
+$codigo         = trim((string) ($_POST['codigo']         ?? ''));
+$sector         = trim((string) ($_POST['sector']         ?? ''));
+$garantenombre  = trim((string) ($_POST['garantenombre']  ?? ''));
+$garantecelular = trim((string) ($_POST['garantecelular'] ?? ''));
+$observaciones  = trim((string) ($_POST['observaciones']  ?? ''));
 
 if ($serial === '')         jsonErr('El serial del dispositivo es requerido');
 if ($nombrecompleto === '') jsonErr('El nombre completo es requerido');
 if ($ci === '')             jsonErr('La cédula es requerida');
+if ($numerocelular === '')  jsonErr('El celular es requerido');
+if ($vtotarjeta === '')     jsonErr('El vencimiento de tarjeta es requerido');
+if ($sector === '')         jsonErr('El sector es requerido');
+if ($codigo === '')         jsonErr('El código es requerido');
+if ($garantenombre === '')  jsonErr('El nombre del garante es requerido');
+if ($garantecelular === '') jsonErr('El celular del garante es requerido');
 
 require_once __DIR__ . '/../lib/db_connect.php';
 
@@ -57,16 +69,26 @@ try {
     );
 
     $ins = $pdo->prepare('
-        INSERT INTO "Cliente" (uuid, nombrecompleto, ci, numerocelular, "isActive", dispositivo, sector, fecharegistro)
-        VALUES (:uuid, :nombre, :ci, :celular, true, :serial, :sector, NOW())
+        INSERT INTO "Cliente"
+            (uuid, nombrecompleto, ci, numerocelular, numerofijo, vtotarjeta, codigo,
+             "isActive", dispositivo, sector, garantenombre, garantecelular, observaciones, fecharegistro)
+        VALUES
+            (:uuid, :nombre, :ci, :celular, :fijo, :vtotarjeta, :codigo,
+             true, :serial, :sector, :garantenombre, :garantecelular, :observaciones, NOW())
     ');
     $ins->execute([
-        ':uuid'    => $uuid,
-        ':nombre'  => $nombrecompleto,
-        ':ci'      => $ci,
-        ':celular' => $numerocelular,
-        ':serial'  => $serial,
-        ':sector'  => $sector,
+        ':uuid'           => $uuid,
+        ':nombre'         => $nombrecompleto,
+        ':ci'             => $ci,
+        ':celular'        => $numerocelular,
+        ':fijo'           => $numerofijo !== '' ? $numerofijo : null,
+        ':vtotarjeta'     => $vtotarjeta,
+        ':codigo'         => $codigo,
+        ':serial'         => $serial,
+        ':sector'         => $sector,
+        ':garantenombre'  => $garantenombre,
+        ':garantecelular' => $garantecelular,
+        ':observaciones'  => $observaciones !== '' ? $observaciones : null,
     ]);
 
     // 3) Upsert en Dispositivos (por si el serial aún no existe allí)
