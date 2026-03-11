@@ -264,6 +264,113 @@ header('Content-Type: text/html; charset=utf-8');
             max-height: 90vh;
             overflow-y: auto;
         }
+
+        /* ── Modal 📲 Registro Cliente (tabbed) ────────────────── */
+        #modal-registro .modal-box {
+            max-width: 700px;
+            max-height: 90vh;
+            overflow-y: auto;
+            padding: 0;
+        }
+        .registro-header {
+            padding: 20px 28px 0;
+            border-bottom: 1px solid #33374d;
+        }
+        .registro-header h2 {
+            margin: 0 0 16px;
+            font-size: 1.05rem;
+            color: #e0e4f0;
+            padding-right: 32px;
+        }
+        .registro-header h2 span {
+            color: #7b93ff;
+        }
+
+        /* Tabs nav */
+        .tab-nav {
+            display: flex;
+            gap: 0;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+        .tab-nav li {
+            padding: 9px 22px;
+            font-size: .8rem;
+            font-weight: 700;
+            letter-spacing: .07em;
+            color: #9aa0b8;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            user-select: none;
+            transition: color .15s, border-color .15s;
+        }
+        .tab-nav li:hover { color: #c8d0ea; }
+        .tab-nav li.active {
+            color: #7b93ff;
+            border-bottom-color: #7b93ff;
+        }
+
+        /* Tab panels */
+        .tab-body { padding: 22px 28px 28px; }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        /* General info grid */
+        .gen-section {
+            font-size: .72rem;
+            font-weight: 700;
+            letter-spacing: .07em;
+            color: #7b93ff;
+            text-transform: uppercase;
+            margin: 18px 0 8px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #2a2f45;
+        }
+        .gen-section:first-child { margin-top: 0; }
+        .gen-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px 20px;
+        }
+        .gen-grid.col3 { grid-template-columns: 1fr 1fr 1fr; }
+        .gen-cell label {
+            display: block;
+            font-size: .72rem;
+            color: #9aa0b8;
+            margin-bottom: 2px;
+        }
+        .gen-cell p {
+            margin: 0;
+            font-size: .9rem;
+            color: #e0e4f0;
+            word-break: break-word;
+        }
+        .gen-cell p.empty { color: #555c7a; font-style: italic; }
+
+        /* Badge activo */
+        .badge-activo {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: .78rem;
+            font-weight: 600;
+        }
+        .badge-activo.si  { background: rgba(52,211,153,.15); color: #34d399; border: 1px solid rgba(52,211,153,.3); }
+        .badge-activo.no  { background: rgba(239,68,68,.12);  color: #f87171; border: 1px solid rgba(239,68,68,.25); }
+
+        /* Placeholder tabs */
+        .tab-placeholder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 180px;
+            color: #555c7a;
+            font-size: .9rem;
+            gap: 10px;
+        }
+        .tab-placeholder span { font-size: 2.2rem; }
     </style>
 </head>
 
@@ -405,6 +512,28 @@ header('Content-Type: text/html; charset=utf-8');
                             '<?= $clFecha ?>'
                         )"
                     >📝</button>
+                    <!-- 📲 Registrado: abrir modal de registro/expediente del cliente -->
+                    <button
+                        class="btn-accion"
+                        title="Registro del cliente"
+                        onclick="abrirModalRegistro(<?= htmlspecialchars(json_encode([
+                            'uuid'           => $clienteUuid,
+                            'nombre'         => $r['cl_nombre']         ?? '',
+                            'ci'             => $r['cl_ci']             ?? '',
+                            'celular'        => $r['cl_celular']        ?? '',
+                            'fijo'           => $r['cl_fijo']           ?? '',
+                            'vtotarjeta'     => $r['cl_vtotarjeta']     ?? '',
+                            'codigo'         => $r['cl_codigo']         ?? '',
+                            'sector'         => $r['cl_sector']         ?? '',
+                            'activo'         => !empty($r['cl_activo']),
+                            'garantenombre'  => $r['cl_garantenombre']  ?? '',
+                            'garantecelular' => $r['cl_garantecelular'] ?? '',
+                            'observaciones'  => $r['cl_observaciones']  ?? '',
+                            'fecharegistro'  => $clFecha,
+                            'serial'         => $r['ev_serial']         ?? '',
+                            'dispositivo'    => trim(($r['ev_vendor'] ?? '') . ' ' . ($r['ev_product'] ?? '')),
+                        ]), ENT_QUOTES, 'UTF-8') ?>)"
+                    >📲</button>
                 <?php endif; ?>
                 </td>
             </tr>
@@ -582,6 +711,140 @@ header('Content-Type: text/html; charset=utf-8');
     </div>
 
 
+    <!-- ════════════════════════════════════════════════════════════
+         MODAL 📲  Registro / Expediente del cliente  (tab menu)
+    ════════════════════════════════════════════════════════════ -->
+    <div id="modal-registro" class="modal-overlay" role="dialog" aria-modal="true">
+        <div class="modal-box">
+            <button class="modal-close" onclick="cerrarModal('modal-registro')" title="Cerrar">✕</button>
+
+            <!-- Cabecera con título dinámico + tabs nav -->
+            <div class="registro-header">
+                <h2>Registro Cliente &mdash; <span id="reg-tab-nombre"></span></h2>
+                <ul class="tab-nav" id="reg-tabs">
+                    <li class="active" data-tab="tab-general">GENERAL</li>
+                    <li data-tab="tab-prestamos">PRESTAMOS</li>
+                    <li data-tab="tab-pagos">PAGOS</li>
+                    <li data-tab="tab-banco">BANCO</li>
+                </ul>
+            </div>
+
+            <!-- Cuerpo con panels -->
+            <div class="tab-body">
+
+                <!-- ── GENERAL ──────────────────────────────────── -->
+                <div id="tab-general" class="tab-panel active">
+
+                    <!-- Dispositivo -->
+                    <div class="gen-section">Dispositivo</div>
+                    <div class="gen-grid col3">
+                        <div class="gen-cell">
+                            <label>Serial</label>
+                            <p id="gen-serial"></p>
+                        </div>
+                        <div class="gen-cell" style="grid-column:span 2">
+                            <label>Dispositivo</label>
+                            <p id="gen-dispositivo"></p>
+                        </div>
+                    </div>
+
+                    <!-- Datos personales -->
+                    <div class="gen-section">Datos Personales</div>
+                    <div class="gen-grid">
+                        <div class="gen-cell" style="grid-column:span 2">
+                            <label>Nombre Completo</label>
+                            <p id="gen-nombre"></p>
+                        </div>
+                    </div>
+                    <div class="gen-grid col3" style="margin-top:10px">
+                        <div class="gen-cell">
+                            <label>CI / Cédula</label>
+                            <p id="gen-ci"></p>
+                        </div>
+                        <div class="gen-cell">
+                            <label>Celular</label>
+                            <p id="gen-celular"></p>
+                        </div>
+                        <div class="gen-cell">
+                            <label>Teléfono Fijo</label>
+                            <p id="gen-fijo"></p>
+                        </div>
+                    </div>
+                    <div class="gen-grid col3" style="margin-top:10px">
+                        <div class="gen-cell">
+                            <label>Sector / Grupo</label>
+                            <p id="gen-sector"></p>
+                        </div>
+                        <div class="gen-cell">
+                            <label>Código</label>
+                            <p id="gen-codigo"></p>
+                        </div>
+                        <div class="gen-cell">
+                            <label>Vto. Tarjeta</label>
+                            <p id="gen-vtotarjeta"></p>
+                        </div>
+                    </div>
+                    <div class="gen-grid" style="margin-top:10px">
+                        <div class="gen-cell">
+                            <label>Estado</label>
+                            <p id="gen-activo"></p>
+                        </div>
+                        <div class="gen-cell">
+                            <label>Fecha de Registro</label>
+                            <p id="gen-fecha"></p>
+                        </div>
+                    </div>
+
+                    <!-- Garante -->
+                    <div class="gen-section">Garante</div>
+                    <div class="gen-grid">
+                        <div class="gen-cell">
+                            <label>Nombre Completo</label>
+                            <p id="gen-garantenombre"></p>
+                        </div>
+                        <div class="gen-cell">
+                            <label>Celular</label>
+                            <p id="gen-garantecelular"></p>
+                        </div>
+                    </div>
+
+                    <!-- Observaciones -->
+                    <div class="gen-section">Observaciones</div>
+                    <div class="gen-cell">
+                        <p id="gen-observaciones" style="white-space:pre-wrap"></p>
+                    </div>
+
+                </div><!-- /tab-general -->
+
+                <!-- ── PRESTAMOS ─────────────────────────────────── -->
+                <div id="tab-prestamos" class="tab-panel">
+                    <div class="tab-placeholder">
+                        <span>💳</span>
+                        Módulo de Préstamos — próximamente
+                    </div>
+                </div>
+
+                <!-- ── PAGOS ─────────────────────────────────────── -->
+                <div id="tab-pagos" class="tab-panel">
+                    <div class="tab-placeholder">
+                        <span>💵</span>
+                        Módulo de Pagos — próximamente
+                    </div>
+                </div>
+
+                <!-- ── BANCO ─────────────────────────────────────── -->
+                <div id="tab-banco" class="tab-panel">
+                    <div class="tab-placeholder">
+                        <span>🏦</span>
+                        Módulo Bancario — próximamente
+                    </div>
+                </div>
+
+            </div><!-- /tab-body -->
+        </div>
+    </div>
+
+
     <!-- ── Scripts ───────────────────────────────────────────────── -->
     <script>
     // ── Filtro de búsqueda ───────────────────────────────────────
@@ -695,6 +958,80 @@ header('Content-Type: text/html; charset=utf-8');
             btn.textContent = 'Guardar cambios';
         }
     }
+
+    // ── Modal 📲 Registro / Expediente del cliente ──────────────
+    function txt(val) {
+        const s = (val ?? '').toString().trim();
+        return s !== '' ? s : null;
+    }
+    function setGen(id, val, emptyLabel) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const v = txt(val);
+        if (v) {
+            el.textContent = v;
+            el.classList.remove('empty');
+        } else {
+            el.textContent = emptyLabel ?? '—';
+            el.classList.add('empty');
+        }
+    }
+
+    function abrirModalRegistro(data) {
+        // Título de cabecera
+        document.getElementById('reg-tab-nombre').textContent = txt(data.nombre) ?? '(sin nombre)';
+
+        // Dispositivo
+        setGen('gen-serial',      data.serial,      '—');
+        setGen('gen-dispositivo', data.dispositivo, '—');
+
+        // Datos personales
+        setGen('gen-nombre',      data.nombre,      '—');
+        setGen('gen-ci',          data.ci,          '—');
+        setGen('gen-celular',     data.celular,      '—');
+        setGen('gen-fijo',        data.fijo,         '—');
+        setGen('gen-sector',      data.sector,       '—');
+        setGen('gen-codigo',      data.codigo,       '—');
+        setGen('gen-vtotarjeta',  data.vtotarjeta,   '—');
+        setGen('gen-fecha',       data.fecharegistro,'—');
+
+        // Badge activo
+        const actEl = document.getElementById('gen-activo');
+        if (actEl) {
+            if (data.activo) {
+                actEl.innerHTML = '<span class="badge-activo si">Activo</span>';
+            } else {
+                actEl.innerHTML = '<span class="badge-activo no">Inactivo</span>';
+            }
+        }
+
+        // Garante
+        setGen('gen-garantenombre',   data.garantenombre,   '—');
+        setGen('gen-garantecelular',  data.garantecelular,  '—');
+
+        // Observaciones
+        setGen('gen-observaciones', data.observaciones, 'Sin observaciones');
+
+        // Activar primer tab
+        activarTab('tab-general');
+        abrirModal('modal-registro');
+    }
+
+    // ── Tab switching ────────────────────────────────────────────
+    function activarTab(tabId) {
+        document.querySelectorAll('#modal-registro .tab-panel').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('#reg-tabs li').forEach(li => li.classList.remove('active'));
+        const panel = document.getElementById(tabId);
+        if (panel) panel.classList.add('active');
+        const navItem = document.querySelector(`#reg-tabs [data-tab="${tabId}"]`);
+        if (navItem) navItem.classList.add('active');
+    }
+
+    document.getElementById('reg-tabs').addEventListener('click', function(e) {
+        const li = e.target.closest('li[data-tab]');
+        if (!li) return;
+        activarTab(li.dataset.tab);
+    });
     </script>
 
 </body>
