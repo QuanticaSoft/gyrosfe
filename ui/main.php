@@ -267,20 +267,28 @@ header('Content-Type: text/html; charset=utf-8');
 
         /* ── Modal 📲 Registro Cliente (tabbed) ────────────────── */
         #modal-registro .modal-box {
-            max-width: 700px;
-            max-height: 90vh;
-            overflow-y: auto;
+            width: 700px;
+            max-width: 95vw;
+            height: 580px;
+            max-height: 92vh;
+            display: flex;
+            flex-direction: column;
             padding: 0;
+            overflow: hidden;
         }
         .registro-header {
+            flex-shrink: 0;
             padding: 20px 28px 0;
             border-bottom: 1px solid #33374d;
         }
         .registro-header h2 {
-            margin: 0 0 16px;
+            margin: 0 0 14px;
             font-size: 1.05rem;
             color: #e0e4f0;
             padding-right: 32px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         .registro-header h2 span {
             color: #7b93ff;
@@ -311,8 +319,12 @@ header('Content-Type: text/html; charset=utf-8');
             border-bottom-color: #7b93ff;
         }
 
-        /* Tab panels */
-        .tab-body { padding: 22px 28px 28px; }
+        /* Tab panels — cuerpo de altura fija con scroll interno */
+        .tab-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 22px 28px 28px;
+        }
         .tab-panel { display: none; }
         .tab-panel.active { display: block; }
 
@@ -348,16 +360,54 @@ header('Content-Type: text/html; charset=utf-8');
         }
         .gen-cell p.empty { color: #555c7a; font-style: italic; }
 
-        /* Badge activo */
-        .badge-activo {
-            display: inline-block;
-            padding: 2px 10px;
-            border-radius: 12px;
-            font-size: .78rem;
-            font-weight: 600;
+        /* Toggle switch activo */
+        .toggle-wrap {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 2px;
         }
-        .badge-activo.si  { background: rgba(52,211,153,.15); color: #34d399; border: 1px solid rgba(52,211,153,.3); }
-        .badge-activo.no  { background: rgba(239,68,68,.12);  color: #f87171; border: 1px solid rgba(239,68,68,.25); }
+        .toggle-switch {
+            position: relative;
+            width: 42px;
+            height: 22px;
+            flex-shrink: 0;
+        }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .toggle-track {
+            position: absolute;
+            inset: 0;
+            border-radius: 22px;
+            background: #33374d;
+            cursor: pointer;
+            transition: background .2s;
+        }
+        .toggle-track::after {
+            content: '';
+            position: absolute;
+            top: 3px; left: 3px;
+            width: 16px; height: 16px;
+            border-radius: 50%;
+            background: #9aa0b8;
+            transition: transform .2s, background .2s;
+        }
+        .toggle-switch input:checked + .toggle-track {
+            background: rgba(52,211,153,.35);
+            border: 1px solid rgba(52,211,153,.5);
+        }
+        .toggle-switch input:checked + .toggle-track::after {
+            transform: translateX(20px);
+            background: #34d399;
+        }
+        .toggle-switch input:disabled + .toggle-track { opacity: .5; cursor: not-allowed; }
+        .toggle-label {
+            font-size: .88rem;
+            font-weight: 600;
+            transition: color .2s;
+        }
+        .toggle-label.activo  { color: #34d399; }
+        .toggle-label.inactivo { color: #f87171; }
+        .toggle-saving { font-size: .75rem; color: #9aa0b8; margin-left: 4px; display: none; }
 
         /* Placeholder tabs */
         .tab-placeholder {
@@ -365,7 +415,8 @@ header('Content-Type: text/html; charset=utf-8');
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            min-height: 180px;
+            height: 100%;
+            min-height: 340px;
             color: #555c7a;
             font-size: .9rem;
             gap: 10px;
@@ -786,8 +837,15 @@ header('Content-Type: text/html; charset=utf-8');
                     </div>
                     <div class="gen-grid" style="margin-top:10px">
                         <div class="gen-cell">
-                            <label>Estado</label>
-                            <p id="gen-activo"></p>
+                            <label>Estado del Cliente</label>
+                            <div class="toggle-wrap">
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="gen-activo-chk" onchange="toggleActivo(this)">
+                                    <span class="toggle-track"></span>
+                                </label>
+                                <span class="toggle-label" id="gen-activo-label">—</span>
+                                <span class="toggle-saving" id="gen-activo-saving">Guardando…</span>
+                            </div>
                         </div>
                         <div class="gen-cell">
                             <label>Fecha de Registro</label>
@@ -995,14 +1053,12 @@ header('Content-Type: text/html; charset=utf-8');
         setGen('gen-vtotarjeta',  data.vtotarjeta,   '—');
         setGen('gen-fecha',       data.fecharegistro,'—');
 
-        // Badge activo
-        const actEl = document.getElementById('gen-activo');
-        if (actEl) {
-            if (data.activo) {
-                actEl.innerHTML = '<span class="badge-activo si">Activo</span>';
-            } else {
-                actEl.innerHTML = '<span class="badge-activo no">Inactivo</span>';
-            }
+        // Toggle activo — guarda UUID para usarlo en toggleActivo()
+        const chk = document.getElementById('gen-activo-chk');
+        if (chk) {
+            chk.checked = !!data.activo;
+            chk.dataset.uuid = data.uuid;
+            actualizarToggleLabel(!!data.activo);
         }
 
         // Garante
@@ -1032,6 +1088,53 @@ header('Content-Type: text/html; charset=utf-8');
         if (!li) return;
         activarTab(li.dataset.tab);
     });
+
+    // ── Toggle activo/inactivo ───────────────────────────────────
+    function actualizarToggleLabel(activo) {
+        const lbl = document.getElementById('gen-activo-label');
+        if (!lbl) return;
+        if (activo) {
+            lbl.textContent = 'Activo';
+            lbl.className = 'toggle-label activo';
+        } else {
+            lbl.textContent = 'Inactivo';
+            lbl.className = 'toggle-label inactivo';
+        }
+    }
+
+    async function toggleActivo(chk) {
+        const uuid    = chk.dataset.uuid ?? '';
+        const activo  = chk.checked;
+        const saving  = document.getElementById('gen-activo-saving');
+
+        if (!uuid) { chk.checked = !activo; return; }
+
+        chk.disabled = true;
+        if (saving) saving.style.display = 'inline';
+        actualizarToggleLabel(activo);
+
+        const fd = new FormData();
+        fd.append('uuid',     uuid);
+        fd.append('isActive', activo ? '1' : '0');
+
+        try {
+            const res  = await fetch('/gyrosfe/api/cliente_toggle_activo.php', { method: 'POST', body: fd });
+            const json = await res.json();
+            if (!json.ok) {
+                // Revertir si falló
+                chk.checked = !activo;
+                actualizarToggleLabel(!activo);
+                alert('Error al cambiar estado: ' + (json.error ?? 'Desconocido'));
+            }
+        } catch (err) {
+            chk.checked = !activo;
+            actualizarToggleLabel(!activo);
+            alert('Error de red: ' + err.message);
+        } finally {
+            chk.disabled = false;
+            if (saving) saving.style.display = 'none';
+        }
+    }
     </script>
 
 </body>
