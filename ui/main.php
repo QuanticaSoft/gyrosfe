@@ -506,18 +506,6 @@ header('Content-Type: text/html; charset=utf-8');
         .estado-vencido  { color: #f87171; font-weight: 700; }
         .estado-parcial  { color: #60a5fa; font-weight: 700; }
         .estado-default  { color: #9aa0b8; }
-        /* Botones pequeños en tabla */
-        .btn-sm {
-            background: none;
-            border: 1px solid #33374d;
-            border-radius: 4px;
-            color: #c8d0ea;
-            font-size: .9rem;
-            cursor: pointer;
-            padding: 2px 6px;
-            line-height: 1.3;
-        }
-        .btn-sm:hover { background: rgba(255,255,255,.1); }
 
         /* ── Modal genérico flotante (préstamos) ────────────────── */
         .modal-float {
@@ -1459,7 +1447,7 @@ header('Content-Type: text/html; charset=utf-8');
                 <td class="td-num">${fmtMoney(p.total_a_pagar)}</td>
                 <td class="td-num">${fmtMoney(p.total_interes)}</td>
                 <td style="text-align:center">
-                    <button class="btn-sm btn-edit-prest"
+                    <button class="btn-accion btn-edit-prest"
                         data-id="${p.id_prestamo}"
                         data-monto="${p.monto_prestado}"
                         data-tasa="${p.tasa_interes}"
@@ -1470,10 +1458,18 @@ header('Content-Type: text/html; charset=utf-8');
             </tr>`;
         }).join('');
 
+        const totalMonto = rows.reduce((sum, p) => sum + parseFloat(p.monto_prestado || 0), 0);
+
+        const filaTotales = `<tr style="border-top:2px solid #2a2f45">
+            <td colspan="2" style="text-align:right;font-size:.72rem;font-weight:700;letter-spacing:.06em;color:#7b93ff;text-transform:uppercase;padding-right:12px">Total Préstamos:</td>
+            <td class="td-num" style="color:#e0e4f0;font-weight:700">Bs ${totalMonto.toFixed(2)}</td>
+            <td colspan="5"></td>
+        </tr>`;
+
         const filaAgregar = `<tr>
             <td colspan="7" class="td-add">Agregar nuevo Préstamo</td>
             <td style="text-align:center">
-                <button class="btn-sm" onclick="abrirNuevoPrestamo()" title="Agregar nuevo préstamo">➕</button>
+                <button class="btn-accion" onclick="abrirNuevoPrestamo()" title="Agregar nuevo préstamo">➕</button>
             </td>
         </tr>`;
 
@@ -1489,7 +1485,7 @@ header('Content-Type: text/html; charset=utf-8');
                     <th>Total Intereses</th>
                     <th style="text-align:center">Acciones</th>
                 </tr></thead>
-                <tbody>${filas}${filaAgregar}</tbody>
+                <tbody>${filas}${rows.length > 0 ? filaTotales : ''}${filaAgregar}</tbody>
             </table>
         </div>`;
     }
@@ -1663,7 +1659,7 @@ header('Content-Type: text/html; charset=utf-8');
                 <td>${c.transferencia != null ? fmtMoney(c.transferencia) : '—'}</td>
                 <td class="${estadoClass(c.estado)}">${estadoLabel(c.estado)}</td>
                 <td style="text-align:center">
-                    <button class="btn-sm btn-reg-pago"
+                    <button class="btn-accion btn-reg-pago"
                         data-id="${c.id_pago}"
                         data-fecha="${c.fecha_pago ?? ''}"
                         data-estado="${c.estado}"
