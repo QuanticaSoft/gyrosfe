@@ -216,6 +216,7 @@ header('Content-Type: text/html; charset=utf-8');
 
         /* ── Botones de acción en la tabla ─────────────────────── */
         .btn-accion {
+            width: auto;
             background: none;
             border: none;
             font-size: 1.3rem;
@@ -267,10 +268,10 @@ header('Content-Type: text/html; charset=utf-8');
 
         /* ── Modal 📲 Registro Cliente (tabbed) ────────────────── */
         #modal-registro .modal-box {
-            width: 700px;
-            max-width: 95vw;
-            height: 580px;
-            max-height: 92vh;
+            width: 1020px;
+            max-width: 97vw;
+            height: 680px;
+            max-height: 94vh;
             display: flex;
             flex-direction: column;
             padding: 0;
@@ -422,6 +423,155 @@ header('Content-Type: text/html; charset=utf-8');
             gap: 10px;
         }
         .tab-placeholder span { font-size: 2.2rem; }
+
+        /* ── Tabla de Préstamos ─────────────────────────────────── */
+        .prest-table-wrap { overflow-x: auto; }
+        .prest-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: .82rem;
+        }
+        .prest-table th {
+            background: #1a1f35;
+            color: #7b93ff;
+            font-size: .72rem;
+            font-weight: 700;
+            letter-spacing: .06em;
+            text-transform: uppercase;
+            padding: 8px 10px;
+            text-align: left;
+            border-bottom: 2px solid #2a2f45;
+            white-space: nowrap;
+        }
+        .prest-table td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #1e2235;
+            color: #c8d0ea;
+            vertical-align: middle;
+        }
+        .prest-table tr:hover td { background: rgba(123,147,255,.06); }
+        .prest-table .td-add {
+            text-align: center;
+            color: #555c7a;
+            font-style: italic;
+            font-size: .8rem;
+        }
+        .prest-table .td-num { text-align: right; font-family: monospace; }
+
+        /* ── Sección Pagos (por préstamo) ───────────────────────── */
+        .pago-bloque { margin-bottom: 28px; }
+        .pago-bloque-header {
+            background: #1a1f35;
+            border-left: 3px solid #7b93ff;
+            padding: 8px 14px;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            font-size: .82rem;
+            color: #c8d0ea;
+            display: flex;
+            gap: 18px;
+            flex-wrap: wrap;
+        }
+        .pago-bloque-header strong { color: #7b93ff; }
+        .pago-table-wrap { overflow-x: auto; }
+        .pago-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: .78rem;
+        }
+        .pago-table th {
+            background: #131624;
+            color: #9aa0b8;
+            font-size: .68rem;
+            font-weight: 700;
+            letter-spacing: .05em;
+            text-transform: uppercase;
+            padding: 6px 8px;
+            text-align: center;
+            border-bottom: 2px solid #2a2f45;
+            white-space: nowrap;
+        }
+        .pago-table td {
+            padding: 5px 8px;
+            border-bottom: 1px solid #1a1e2f;
+            color: #c8d0ea;
+            text-align: center;
+            vertical-align: middle;
+            white-space: nowrap;
+        }
+        .pago-table tr:hover td { background: rgba(255,255,255,.03); }
+        /* Estados */
+        .estado-pagado   { color: #34d399; font-weight: 700; }
+        .estado-pendiente{ color: #fbbf24; font-weight: 700; }
+        .estado-vencido  { color: #f87171; font-weight: 700; }
+        .estado-parcial  { color: #60a5fa; font-weight: 700; }
+        .estado-default  { color: #9aa0b8; }
+        /* Botones pequeños en tabla */
+        .btn-sm {
+            background: none;
+            border: 1px solid #33374d;
+            border-radius: 4px;
+            color: #c8d0ea;
+            font-size: .9rem;
+            cursor: pointer;
+            padding: 2px 6px;
+            line-height: 1.3;
+        }
+        .btn-sm:hover { background: rgba(255,255,255,.1); }
+
+        /* ── Modal genérico flotante (préstamos) ────────────────── */
+        .modal-float {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.6);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-float.active { display: flex; }
+        .modal-float-box {
+            background: #1e2130;
+            border: 1px solid #33374d;
+            border-radius: 10px;
+            padding: 26px 30px;
+            width: 400px;
+            max-width: 96vw;
+            color: #e0e4f0;
+            position: relative;
+        }
+        .modal-float-box h3 { margin: 0 0 18px; font-size: 1rem; }
+        .mf-close {
+            position: absolute; top: 12px; right: 14px;
+            background: none; border: none; color: #888;
+            font-size: 1.3rem; cursor: pointer;
+        }
+        .mf-close:hover { color: #fff; }
+        .mf-label {
+            display: block;
+            font-size: .75rem;
+            color: #9aa0b8;
+            margin: 10px 0 3px;
+        }
+        .mf-input {
+            width: 100%; box-sizing: border-box;
+            padding: 7px 10px;
+            border-radius: 6px;
+            border: 1px solid #33374d;
+            background: #131624;
+            color: #e0e4f0;
+            font-size: .9rem;
+        }
+        .mf-note {
+            font-size: .72rem;
+            color: #555c7a;
+            margin-top: 3px;
+        }
+        .mf-actions {
+            display: flex; gap: 10px;
+            justify-content: flex-end;
+            margin-top: 18px;
+        }
     </style>
 </head>
 
@@ -541,50 +691,52 @@ header('Content-Type: text/html; charset=utf-8');
                         )"
                     >➕</button>
                 <?php else: ?>
-                    <!-- 📝 Registrado: abrir modal de info/edición -->
-                    <button
-                        class="btn-accion"
-                        title="Ver / Editar cliente"
-                        onclick="abrirModalEditar(
-                            '<?= $clienteUuid ?>',
-                            '<?= $serial ?>',
-                            '<?= addslashes($dispLabel) ?>',
-                            '<?= $clNombre ?>',
-                            '<?= $clCi ?>',
-                            '<?= $clCelular ?>',
-                            '<?= $clFijo ?>',
-                            '<?= $clVtoTarjeta ?>',
-                            '<?= $clCodigo ?>',
-                            '<?= $clSector ?>',
-                            '<?= $clActivo ?>',
-                            '<?= addslashes($clGaranteNombre) ?>',
-                            '<?= $clGaranteCel ?>',
-                            '<?= addslashes($clObservaciones) ?>',
-                            '<?= $clFecha ?>'
-                        )"
-                    >📝</button>
-                    <!-- 📲 Registrado: abrir modal de registro/expediente del cliente -->
-                    <button
-                        class="btn-accion"
-                        title="Registro del cliente"
-                        onclick="abrirModalRegistro(<?= htmlspecialchars(json_encode([
-                            'uuid'           => $clienteUuid,
-                            'nombre'         => $r['cl_nombre']         ?? '',
-                            'ci'             => $r['cl_ci']             ?? '',
-                            'celular'        => $r['cl_celular']        ?? '',
-                            'fijo'           => $r['cl_fijo']           ?? '',
-                            'vtotarjeta'     => $r['cl_vtotarjeta']     ?? '',
-                            'codigo'         => $r['cl_codigo']         ?? '',
-                            'sector'         => $r['cl_sector']         ?? '',
-                            'activo'         => !empty($r['cl_activo']),
-                            'garantenombre'  => $r['cl_garantenombre']  ?? '',
-                            'garantecelular' => $r['cl_garantecelular'] ?? '',
-                            'observaciones'  => $r['cl_observaciones']  ?? '',
-                            'fecharegistro'  => $clFecha,
-                            'serial'         => $r['ev_serial']         ?? '',
-                            'dispositivo'    => trim(($r['ev_vendor'] ?? '') . ' ' . ($r['ev_product'] ?? '')),
-                        ]), ENT_QUOTES, 'UTF-8') ?>)"
-                    >📲</button>
+                    <div style="display:inline-flex;align-items:center;gap:2px">
+                        <!-- 📲 Registro/expediente del cliente — izquierda -->
+                        <button
+                            class="btn-accion"
+                            title="Registro del cliente"
+                            onclick="abrirModalRegistro(<?= htmlspecialchars(json_encode([
+                                'uuid'           => $clienteUuid,
+                                'nombre'         => $r['cl_nombre']         ?? '',
+                                'ci'             => $r['cl_ci']             ?? '',
+                                'celular'        => $r['cl_celular']        ?? '',
+                                'fijo'           => $r['cl_fijo']           ?? '',
+                                'vtotarjeta'     => $r['cl_vtotarjeta']     ?? '',
+                                'codigo'         => $r['cl_codigo']         ?? '',
+                                'sector'         => $r['cl_sector']         ?? '',
+                                'activo'         => !empty($r['cl_activo']),
+                                'garantenombre'  => $r['cl_garantenombre']  ?? '',
+                                'garantecelular' => $r['cl_garantecelular'] ?? '',
+                                'observaciones'  => $r['cl_observaciones']  ?? '',
+                                'fecharegistro'  => $clFecha,
+                                'serial'         => $r['ev_serial']         ?? '',
+                                'dispositivo'    => trim(($r['ev_vendor'] ?? '') . ' ' . ($r['ev_product'] ?? '')),
+                            ]), ENT_QUOTES, 'UTF-8') ?>)"
+                        >📲</button>
+                        <!-- 📝 Ver / Editar cliente — derecha -->
+                        <button
+                            class="btn-accion"
+                            title="Ver / Editar cliente"
+                            onclick="abrirModalEditar(
+                                '<?= $clienteUuid ?>',
+                                '<?= $serial ?>',
+                                '<?= addslashes($dispLabel) ?>',
+                                '<?= $clNombre ?>',
+                                '<?= $clCi ?>',
+                                '<?= $clCelular ?>',
+                                '<?= $clFijo ?>',
+                                '<?= $clVtoTarjeta ?>',
+                                '<?= $clCodigo ?>',
+                                '<?= $clSector ?>',
+                                '<?= $clActivo ?>',
+                                '<?= addslashes($clGaranteNombre) ?>',
+                                '<?= $clGaranteCel ?>',
+                                '<?= addslashes($clObservaciones) ?>',
+                                '<?= $clFecha ?>'
+                            )"
+                        >📝</button>
+                    </div>
                 <?php endif; ?>
                 </td>
             </tr>
@@ -876,18 +1028,18 @@ header('Content-Type: text/html; charset=utf-8');
 
                 <!-- ── PRESTAMOS ─────────────────────────────────── -->
                 <div id="tab-prestamos" class="tab-panel">
-                    <div class="tab-placeholder">
-                        <span>💳</span>
-                        Módulo de Préstamos — próximamente
+                    <div id="prest-loading" class="tab-placeholder" style="display:none">
+                        <span>⏳</span>Cargando préstamos…
                     </div>
+                    <div id="prest-content"></div>
                 </div>
 
                 <!-- ── PAGOS ─────────────────────────────────────── -->
                 <div id="tab-pagos" class="tab-panel">
-                    <div class="tab-placeholder">
-                        <span>💵</span>
-                        Módulo de Pagos — próximamente
+                    <div id="pagos-loading" class="tab-placeholder" style="display:none">
+                        <span>⏳</span>Cargando pagos…
                     </div>
+                    <div id="pagos-content"></div>
                 </div>
 
                 <!-- ── BANCO ─────────────────────────────────────── -->
@@ -902,6 +1054,92 @@ header('Content-Type: text/html; charset=utf-8');
         </div>
     </div>
 
+
+    <!-- ════════════════════════════════════════════════════════════
+         MODAL ➕  Nuevo Préstamo
+    ════════════════════════════════════════════════════════════ -->
+    <div id="modal-nuevo-prest" class="modal-float" role="dialog" aria-modal="true">
+        <div class="modal-float-box">
+            <button class="mf-close" onclick="cerrarModalFloat('modal-nuevo-prest')">✕</button>
+            <h3>➕ Nuevo Préstamo</h3>
+            <label class="mf-label">Fecha de Préstamo *</label>
+            <input type="date" id="np-fecha" class="mf-input">
+            <label class="mf-label">Monto Prestado (Bs.) *</label>
+            <input type="number" id="np-monto" class="mf-input" min="0.01" step="0.01" placeholder="0.00" oninput="recalcCuota()">
+            <label class="mf-label">Tasa de Interés Mensual (%) *</label>
+            <input type="number" id="np-tasa" class="mf-input" min="0" step="0.01" placeholder="0.00" oninput="recalcCuota()">
+            <label class="mf-label">Meses *</label>
+            <input type="number" id="np-meses" class="mf-input" min="1" step="1" placeholder="12" oninput="recalcCuota()">
+            <label class="mf-label">Cuota Mensual (Bs.) — calculado automáticamente</label>
+            <input type="text" id="np-cuota" class="mf-input" readonly style="opacity:.6;cursor:not-allowed;">
+            <div class="mf-note" id="np-totales"></div>
+            <div class="mf-actions">
+                <button class="btn-cancel" onclick="cerrarModalFloat('modal-nuevo-prest')">Cancelar</button>
+                <button class="btn-primary" id="btn-crear-prest" onclick="crearPrestamo()">Crear Préstamo</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════════
+         MODAL ✏️  Editar Préstamo
+    ════════════════════════════════════════════════════════════ -->
+    <div id="modal-editar-prest" class="modal-float" role="dialog" aria-modal="true">
+        <div class="modal-float-box">
+            <button class="mf-close" onclick="cerrarModalFloat('modal-editar-prest')">✕</button>
+            <h3>✏️ Editar Préstamo</h3>
+            <input type="hidden" id="ep-id">
+            <label class="mf-label">Monto Prestado (Bs.) *</label>
+            <input type="number" id="ep-monto" class="mf-input" min="0.01" step="0.01" oninput="recalcCuotaEdit()">
+            <label class="mf-label">Tasa de Interés Mensual (%) *</label>
+            <input type="number" id="ep-tasa" class="mf-input" min="0" step="0.01" oninput="recalcCuotaEdit()">
+            <label class="mf-label">Meses *</label>
+            <input type="number" id="ep-meses" class="mf-input" min="1" step="1" oninput="recalcCuotaEdit()">
+            <label class="mf-label">Cuota Mensual (Bs.) — calculado automáticamente</label>
+            <input type="text" id="ep-cuota" class="mf-input" readonly style="opacity:.6;cursor:not-allowed;">
+            <div class="mf-note" id="ep-totales"></div>
+            <div class="mf-note" style="color:#f87171;margin-top:6px">⚠️ Se regenerarán las cuotas pendientes.</div>
+            <div class="mf-actions">
+                <button class="btn-cancel" onclick="cerrarModalFloat('modal-editar-prest')">Cancelar</button>
+                <button class="btn-primary" id="btn-guardar-prest" onclick="guardarPrestamo()">Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════════
+         MODAL 💸  Registrar Pago
+    ════════════════════════════════════════════════════════════ -->
+    <div id="modal-reg-pago" class="modal-float" role="dialog" aria-modal="true">
+        <div class="modal-float-box">
+            <button class="mf-close" onclick="cerrarModalFloat('modal-reg-pago')">✕</button>
+            <h3>💸 Registrar Pago</h3>
+            <input type="hidden" id="rp-id">
+            <label class="mf-label">Fecha de Pago *</label>
+            <input type="date" id="rp-fecha" class="mf-input">
+            <label class="mf-label">Monto Pagado (Bs.) *</label>
+            <input type="number" id="rp-monto" class="mf-input" min="0.01" step="0.01">
+            <label class="mf-label">Monto Transferencia (Bs.)</label>
+            <input type="number" id="rp-transf" class="mf-input" min="0" step="0.01">
+            <label class="mf-label">Método de Pago</label>
+            <select id="rp-metodo" class="mf-input">
+                <option value="">— Seleccionar —</option>
+                <option value="Transferencia">Transferencia</option>
+                <option value="Efectivo">Efectivo</option>
+                <option value="QR">QR</option>
+                <option value="Débito">Débito</option>
+            </select>
+            <label class="mf-label">Estado</label>
+            <select id="rp-estado" class="mf-input">
+                <option value="pagado">Pagado</option>
+                <option value="parcial">Parcial</option>
+                <option value="vencido">Vencido</option>
+                <option value="pendiente">Pendiente</option>
+            </select>
+            <div class="mf-actions">
+                <button class="btn-cancel" onclick="cerrarModalFloat('modal-reg-pago')">Cancelar</button>
+                <button class="btn-primary" id="btn-guardar-pago" onclick="guardarPago()">Guardar Pago</button>
+            </div>
+        </div>
+    </div>
 
     <!-- ── Scripts ───────────────────────────────────────────────── -->
     <script>
@@ -1017,6 +1255,10 @@ header('Content-Type: text/html; charset=utf-8');
         }
     }
 
+    // ── Estado del modal Registro ────────────────────────────────
+    let _regUuid   = '';   // UUID del cliente actualmente abierto
+    let _regCodigo = '';   // Código del cliente
+
     // ── Modal 📲 Registro / Expediente del cliente ──────────────
     function txt(val) {
         const s = (val ?? '').toString().trim();
@@ -1036,6 +1278,16 @@ header('Content-Type: text/html; charset=utf-8');
     }
 
     function abrirModalRegistro(data) {
+        // Guardar UUID y código del cliente actual
+        _regUuid   = (data.uuid   ?? '').toString().trim();
+        _regCodigo = (data.codigo ?? '').toString().trim();
+
+        // Limpiar contenido de tabs dinámicos al abrir
+        document.getElementById('prest-content').innerHTML = '';
+        document.getElementById('pagos-content').innerHTML = '';
+        document.getElementById('prest-loading').style.display = 'none';
+        document.getElementById('pagos-loading').style.display = 'none';
+
         // Título de cabecera
         document.getElementById('reg-tab-nombre').textContent = txt(data.nombre) ?? '(sin nombre)';
 
@@ -1081,6 +1333,10 @@ header('Content-Type: text/html; charset=utf-8');
         if (panel) panel.classList.add('active');
         const navItem = document.querySelector(`#reg-tabs [data-tab="${tabId}"]`);
         if (navItem) navItem.classList.add('active');
+
+        // Cargar datos dinámicos según tab
+        if (tabId === 'tab-prestamos' && _regUuid) cargarPrestamos(_regUuid);
+        if (tabId === 'tab-pagos'     && _regUuid) cargarPagos(_regUuid);
     }
 
     document.getElementById('reg-tabs').addEventListener('click', function(e) {
@@ -1100,6 +1356,384 @@ header('Content-Type: text/html; charset=utf-8');
             lbl.textContent = 'Inactivo';
             lbl.className = 'toggle-label inactivo';
         }
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // PRÉSTAMOS
+    // ════════════════════════════════════════════════════════════════
+
+    // ── Helpers ─────────────────────────────────────────────────────
+    function fmtMoney(v) {
+        if (v === null || v === undefined || v === '') return '—';
+        return 'Bs ' + parseFloat(v).toFixed(2);
+    }
+    function fmtDate(d) {
+        if (!d) return '—';
+        // d puede ser "YYYY-MM-DD" o ISO
+        const s = d.toString().substring(0, 10);
+        const [y, m, dd] = s.split('-');
+        return `${dd}/${m}/${y}`;
+    }
+    function calcCuota(monto, tasa, meses) {
+        if (!meses || !monto) return 0;
+        const r = tasa / 100;
+        if (r === 0) return monto / meses;
+        const pot = Math.pow(1 + r, meses);
+        return monto * (r * pot) / (pot - 1);
+    }
+    function calcTotales(monto, tasa, meses) {
+        const cuota = calcCuota(monto, tasa, meses);
+        let r = tasa / 100, saldo = monto, totalInt = 0;
+        for (let i = 0; i < meses; i++) {
+            const int = saldo * r;
+            totalInt += int;
+            saldo = Math.max(0, saldo - (cuota - int));
+        }
+        return { cuota, totalPagar: cuota * meses, totalInt };
+    }
+
+    // ── Helpers de modal flotante ────────────────────────────────────
+    function abrirModalFloat(id) { document.getElementById(id).classList.add('active'); }
+    function cerrarModalFloat(id) { document.getElementById(id).classList.remove('active'); }
+
+    // Cerrar flotantes con overlay-click
+    document.querySelectorAll('.modal-float').forEach(m => {
+        m.addEventListener('click', e => { if (e.target === m) m.classList.remove('active'); });
+    });
+
+    // ── Recalcular cuota en tiempo real ──────────────────────────────
+    function recalcCuota() {
+        const monto = parseFloat(document.getElementById('np-monto').value) || 0;
+        const tasa  = parseFloat(document.getElementById('np-tasa').value)  || 0;
+        const meses = parseInt(document.getElementById('np-meses').value)   || 0;
+        const t     = calcTotales(monto, tasa, meses);
+        document.getElementById('np-cuota').value = t.cuota.toFixed(2);
+        document.getElementById('np-totales').textContent =
+            meses > 0 && monto > 0
+            ? `Total a pagar: Bs ${t.totalPagar.toFixed(2)}  |  Total intereses: Bs ${t.totalInt.toFixed(2)}`
+            : '';
+    }
+    function recalcCuotaEdit() {
+        const monto = parseFloat(document.getElementById('ep-monto').value) || 0;
+        const tasa  = parseFloat(document.getElementById('ep-tasa').value)  || 0;
+        const meses = parseInt(document.getElementById('ep-meses').value)   || 0;
+        const t     = calcTotales(monto, tasa, meses);
+        document.getElementById('ep-cuota').value = t.cuota.toFixed(2);
+        document.getElementById('ep-totales').textContent =
+            meses > 0 && monto > 0
+            ? `Total a pagar: Bs ${t.totalPagar.toFixed(2)}  |  Total intereses: Bs ${t.totalInt.toFixed(2)}`
+            : '';
+    }
+
+    // ── Cargar y renderizar tab Préstamos ────────────────────────────
+    async function cargarPrestamos(uuid) {
+        const loading = document.getElementById('prest-loading');
+        const content = document.getElementById('prest-content');
+        content.innerHTML = '';
+        loading.style.display = 'flex';
+        try {
+            const res  = await fetch(`/gyrosfe/api/prestamos_listar.php?uuid=${encodeURIComponent(uuid)}`);
+            const json = await res.json();
+            loading.style.display = 'none';
+            if (!json.ok) { content.innerHTML = `<p style="color:#f87171;padding:20px">Error: ${json.error}</p>`; return; }
+            content.innerHTML = renderPrestamosTabla(json.data);
+            // Eventos
+            content.querySelectorAll('.btn-edit-prest').forEach(btn => {
+                btn.addEventListener('click', () => abrirEditarPrestamo(btn.dataset));
+            });
+        } catch(err) {
+            loading.style.display = 'none';
+            content.innerHTML = `<p style="color:#f87171;padding:20px">Error de red: ${err.message}</p>`;
+        }
+    }
+
+    function renderPrestamosTabla(rows) {
+        const filas = rows.map((p, i) => {
+            const cuota = calcCuota(parseFloat(p.monto_prestado), parseFloat(p.tasa_interes), parseInt(p.plazo_meses));
+            return `<tr>
+                <td>${_regCodigo || '—'}</td>
+                <td>${fmtDate(p.fecha_prestamo)}</td>
+                <td class="td-num">${fmtMoney(p.monto_prestado)}</td>
+                <td class="td-num">Bs ${cuota.toFixed(2)}</td>
+                <td style="text-align:center">${p.plazo_meses}</td>
+                <td class="td-num">${fmtMoney(p.total_a_pagar)}</td>
+                <td class="td-num">${fmtMoney(p.total_interes)}</td>
+                <td style="text-align:center">
+                    <button class="btn-sm btn-edit-prest"
+                        data-id="${p.id_prestamo}"
+                        data-monto="${p.monto_prestado}"
+                        data-tasa="${p.tasa_interes}"
+                        data-meses="${p.plazo_meses}"
+                        data-fecha="${p.fecha_prestamo}"
+                        title="Editar préstamo">✏️</button>
+                </td>
+            </tr>`;
+        }).join('');
+
+        const filaAgregar = `<tr>
+            <td colspan="7" class="td-add">Agregar nuevo Préstamo</td>
+            <td style="text-align:center">
+                <button class="btn-sm" onclick="abrirNuevoPrestamo()" title="Agregar nuevo préstamo">➕</button>
+            </td>
+        </tr>`;
+
+        return `<div class="prest-table-wrap">
+            <table class="prest-table">
+                <thead><tr>
+                    <th>Código Cliente</th>
+                    <th>Fecha Préstamo</th>
+                    <th>Monto Prestado</th>
+                    <th>Cuota (Bs.)</th>
+                    <th style="text-align:center">Meses</th>
+                    <th>Total Pagar</th>
+                    <th>Total Intereses</th>
+                    <th style="text-align:center">Acciones</th>
+                </tr></thead>
+                <tbody>${filas}${filaAgregar}</tbody>
+            </table>
+        </div>`;
+    }
+
+    // ── Abrir modal Nuevo Préstamo ────────────────────────────────────
+    function abrirNuevoPrestamo() {
+        const hoy = new Date().toISOString().split('T')[0];
+        document.getElementById('np-fecha').value = hoy;
+        document.getElementById('np-monto').value = '';
+        document.getElementById('np-tasa').value  = '';
+        document.getElementById('np-meses').value = '';
+        document.getElementById('np-cuota').value = '';
+        document.getElementById('np-totales').textContent = '';
+        abrirModalFloat('modal-nuevo-prest');
+    }
+
+    async function crearPrestamo() {
+        const btn   = document.getElementById('btn-crear-prest');
+        const fecha = document.getElementById('np-fecha').value;
+        const monto = document.getElementById('np-monto').value;
+        const tasa  = document.getElementById('np-tasa').value;
+        const meses = document.getElementById('np-meses').value;
+        if (!fecha || !monto || !meses) { alert('Completa todos los campos obligatorios'); return; }
+        btn.disabled = true; btn.textContent = 'Creando…';
+        const fd = new FormData();
+        fd.append('clienteUuid',    _regUuid);
+        fd.append('fecha_prestamo', fecha);
+        fd.append('monto_prestado', monto);
+        fd.append('tasa_interes',   tasa || '0');
+        fd.append('plazo_meses',    meses);
+        try {
+            const res  = await fetch('/gyrosfe/api/prestamo_crear.php', { method: 'POST', body: fd });
+            const json = await res.json();
+            if (json.ok) {
+                cerrarModalFloat('modal-nuevo-prest');
+                await cargarPrestamos(_regUuid);
+                // Recargar pagos si el tab de pagos ya fue visitado
+                if (document.getElementById('tab-pagos').classList.contains('active')) {
+                    await cargarPagos(_regUuid);
+                } else {
+                    // Limpiar cache de pagos para forzar recarga al cambiar
+                    document.getElementById('pagos-content').innerHTML = '';
+                }
+            } else {
+                alert('Error: ' + (json.error ?? 'No se pudo crear'));
+            }
+        } catch(err) { alert('Error de red: ' + err.message); }
+        finally { btn.disabled = false; btn.textContent = 'Crear Préstamo'; }
+    }
+
+    // ── Abrir modal Editar Préstamo ──────────────────────────────────
+    function abrirEditarPrestamo(ds) {
+        document.getElementById('ep-id').value    = ds.id;
+        document.getElementById('ep-monto').value = ds.monto;
+        document.getElementById('ep-tasa').value  = ds.tasa;
+        document.getElementById('ep-meses').value = ds.meses;
+        recalcCuotaEdit();
+        abrirModalFloat('modal-editar-prest');
+    }
+
+    async function guardarPrestamo() {
+        const btn   = document.getElementById('btn-guardar-prest');
+        const id    = document.getElementById('ep-id').value;
+        const monto = document.getElementById('ep-monto').value;
+        const tasa  = document.getElementById('ep-tasa').value;
+        const meses = document.getElementById('ep-meses').value;
+        if (!id || !monto || !meses) { alert('Datos inválidos'); return; }
+        btn.disabled = true; btn.textContent = 'Guardando…';
+        const fd = new FormData();
+        fd.append('id_prestamo',   id);
+        fd.append('monto_prestado', monto);
+        fd.append('tasa_interes',   tasa || '0');
+        fd.append('plazo_meses',    meses);
+        try {
+            const res  = await fetch('/gyrosfe/api/prestamo_editar.php', { method: 'POST', body: fd });
+            const json = await res.json();
+            if (json.ok) {
+                cerrarModalFloat('modal-editar-prest');
+                await cargarPrestamos(_regUuid);
+                document.getElementById('pagos-content').innerHTML = '';
+            } else {
+                alert('Error: ' + (json.error ?? 'No se pudo actualizar'));
+            }
+        } catch(err) { alert('Error de red: ' + err.message); }
+        finally { btn.disabled = false; btn.textContent = 'Guardar Cambios'; }
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // PAGOS
+    // ════════════════════════════════════════════════════════════════
+
+    async function cargarPagos(uuid) {
+        const loading = document.getElementById('pagos-loading');
+        const content = document.getElementById('pagos-content');
+        content.innerHTML = '';
+        loading.style.display = 'flex';
+        try {
+            const res  = await fetch(`/gyrosfe/api/pagos_listar.php?uuid=${encodeURIComponent(uuid)}`);
+            const json = await res.json();
+            loading.style.display = 'none';
+            if (!json.ok) { content.innerHTML = `<p style="color:#f87171;padding:20px">Error: ${json.error}</p>`; return; }
+            if (json.data.length === 0) {
+                content.innerHTML = '<div class="tab-placeholder"><span>💵</span>No hay préstamos registrados.</div>';
+                return;
+            }
+            content.innerHTML = json.data.map((item, idx) => renderPagosBloque(item, idx + 1)).join('');
+            // Eventos en botones de pago
+            content.querySelectorAll('.btn-reg-pago').forEach(btn => {
+                btn.addEventListener('click', () => abrirRegPago(btn.dataset));
+            });
+        } catch(err) {
+            loading.style.display = 'none';
+            content.innerHTML = `<p style="color:#f87171;padding:20px">Error de red: ${err.message}</p>`;
+        }
+    }
+
+    function estadoClass(estado) {
+        const m = { pagado: 'estado-pagado', pendiente: 'estado-pendiente',
+                    vencido: 'estado-vencido', parcial: 'estado-parcial' };
+        return m[estado] ?? 'estado-default';
+    }
+    function estadoLabel(estado) {
+        const m = { pagado: 'Pagado', pendiente: 'Pendiente',
+                    vencido: 'Vencido', parcial: 'Parcial' };
+        return m[estado] ?? estado;
+    }
+
+    function renderPagosBloque(item, num) {
+        const p = item.prestamo;
+        const cuotas = item.cuotas;
+        const header = `<div class="pago-bloque-header">
+            <span><strong>PRÉSTAMO #${num}</strong></span>
+            <span>Fecha: <strong>${fmtDate(p.fecha_prestamo)}</strong></span>
+            <span>Monto: <strong>${fmtMoney(p.monto_prestado)}</strong></span>
+            <span>Plazo: <strong>${p.plazo_meses} meses</strong></span>
+            <span>Tasa: <strong>${parseFloat(p.tasa_interes).toFixed(2)}%</strong></span>
+        </div>`;
+
+        if (!cuotas || cuotas.length === 0) {
+            return `<div class="pago-bloque">${header}<p style="color:#555c7a;padding:10px">Sin cuotas generadas.</p></div>`;
+        }
+
+        // Calcular DIAS entre pagos
+        const filas = cuotas.map((c, i) => {
+            let dias = '—';
+            if (i === 0) {
+                // Días desde fecha_prestamo hasta fecha_pago del mes 1
+                if (p.fecha_prestamo && c.fecha_pago) {
+                    const d0 = new Date(p.fecha_prestamo);
+                    const d1 = new Date(c.fecha_pago);
+                    dias = Math.round((d1 - d0) / 86400000);
+                }
+            } else {
+                const prev = cuotas[i - 1];
+                if (prev.fecha_pago && c.fecha_pago) {
+                    const d0 = new Date(prev.fecha_pago);
+                    const d1 = new Date(c.fecha_pago);
+                    dias = Math.round((d1 - d0) / 86400000);
+                }
+            }
+            const saldoFin = parseFloat(c.saldo_deudor ?? 0).toFixed(2);
+            return `<tr>
+                <td>${c.mes}</td>
+                <td>${fmtDate(c.fecha_pago)}</td>
+                <td>${fmtMoney(c.cuota_fija)}</td>
+                <td>${fmtMoney(c.monto_a_interes)}</td>
+                <td>${fmtMoney(c.monto_a_devolucion_kapital)}</td>
+                <td>${fmtMoney(c.saldo_deudor)}</td>
+                <td style="text-align:center">${dias}</td>
+                <td>${fmtMoney(c.saldo_inicial)} / Bs ${saldoFin}</td>
+                <td>${c.transferencia != null ? fmtMoney(c.transferencia) : '—'}</td>
+                <td class="${estadoClass(c.estado)}">${estadoLabel(c.estado)}</td>
+                <td style="text-align:center">
+                    <button class="btn-sm btn-reg-pago"
+                        data-id="${c.id_pago}"
+                        data-fecha="${c.fecha_pago ?? ''}"
+                        data-estado="${c.estado}"
+                        title="Registrar pago">💸</button>
+                </td>
+            </tr>`;
+        }).join('');
+
+        return `<div class="pago-bloque">
+            ${header}
+            <div class="pago-table-wrap">
+                <table class="pago-table">
+                    <thead><tr>
+                        <th>MES</th>
+                        <th>FECHA PAGO</th>
+                        <th>CUOTA FIJA</th>
+                        <th>INTERÉS</th>
+                        <th>CAPITAL</th>
+                        <th>SALDO</th>
+                        <th>DÍAS</th>
+                        <th>INICIAL/FINAL</th>
+                        <th>TRANSF.</th>
+                        <th>ESTADO</th>
+                        <th>ACCIONES</th>
+                    </tr></thead>
+                    <tbody>${filas}</tbody>
+                </table>
+            </div>
+        </div>`;
+    }
+
+    // ── Abrir modal Registrar Pago ───────────────────────────────────
+    function abrirRegPago(ds) {
+        document.getElementById('rp-id').value     = ds.id;
+        document.getElementById('rp-fecha').value  = ds.fecha || new Date().toISOString().split('T')[0];
+        document.getElementById('rp-monto').value  = '';
+        document.getElementById('rp-transf').value = '';
+        document.getElementById('rp-metodo').value = '';
+        document.getElementById('rp-estado').value = ds.estado === 'pagado' ? 'pagado' : 'pagado';
+        abrirModalFloat('modal-reg-pago');
+    }
+
+    async function guardarPago() {
+        const btn    = document.getElementById('btn-guardar-pago');
+        const id     = document.getElementById('rp-id').value;
+        const fecha  = document.getElementById('rp-fecha').value;
+        const monto  = document.getElementById('rp-monto').value;
+        const transf = document.getElementById('rp-transf').value;
+        const metodo = document.getElementById('rp-metodo').value;
+        const estado = document.getElementById('rp-estado').value;
+        if (!id || !fecha) { alert('Completa todos los campos obligatorios'); return; }
+        btn.disabled = true; btn.textContent = 'Guardando…';
+        const fd = new FormData();
+        fd.append('id_pago',     id);
+        fd.append('fecha_pago',  fecha);
+        fd.append('estado',      estado);
+        if (monto)  fd.append('monto_pago',    monto);
+        if (transf) fd.append('transferencia', transf);
+        if (metodo) fd.append('metodo_pago',   metodo);
+        try {
+            const res  = await fetch('/gyrosfe/api/pago_actualizar.php', { method: 'POST', body: fd });
+            const json = await res.json();
+            if (json.ok) {
+                cerrarModalFloat('modal-reg-pago');
+                await cargarPagos(_regUuid);
+            } else {
+                alert('Error: ' + (json.error ?? 'No se pudo guardar'));
+            }
+        } catch(err) { alert('Error de red: ' + err.message); }
+        finally { btn.disabled = false; btn.textContent = 'Guardar Pago'; }
     }
 
     async function toggleActivo(chk) {
