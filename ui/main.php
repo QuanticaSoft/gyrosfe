@@ -1668,6 +1668,16 @@ header('Content-Type: text/html; charset=utf-8');
             </tr>`;
         }).join('');
 
+        const totalInteres = cuotas.reduce((s, c) => s + parseFloat(c.monto_a_interes || 0), 0);
+        const totalCapital = cuotas.reduce((s, c) => s + parseFloat(c.monto_a_devolucion_kapital || 0), 0);
+
+        const filaTotalesPago = `<tr style="border-top:2px solid #2a2f45">
+            <td colspan="3" style="text-align:right;font-size:.68rem;font-weight:700;letter-spacing:.05em;color:#7b93ff;text-transform:uppercase;padding-right:10px">Totales:</td>
+            <td style="text-align:center;color:#e0e4f0;font-weight:700">Bs ${totalInteres.toFixed(2)}</td>
+            <td style="text-align:center;color:#e0e4f0;font-weight:700">Bs ${totalCapital.toFixed(2)}</td>
+            <td colspan="6"></td>
+        </tr>`;
+
         return `<div class="pago-bloque">
             ${header}
             <div class="pago-table-wrap">
@@ -1685,7 +1695,7 @@ header('Content-Type: text/html; charset=utf-8');
                         <th>ESTADO</th>
                         <th>ACCIONES</th>
                     </tr></thead>
-                    <tbody>${filas}</tbody>
+                    <tbody>${filas}${filaTotalesPago}</tbody>
                 </table>
             </div>
         </div>`;
