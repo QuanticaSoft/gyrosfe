@@ -1429,6 +1429,9 @@ header('Content-Type: text/html; charset=utf-8');
             content.querySelectorAll('.btn-edit-prest').forEach(btn => {
                 btn.addEventListener('click', () => abrirEditarPrestamo(btn.dataset));
             });
+            content.querySelectorAll('.btn-del-prest').forEach(btn => {
+                btn.addEventListener('click', () => eliminarPrestamo(btn.dataset.id));
+            });
         } catch(err) {
             loading.style.display = 'none';
             content.innerHTML = `<p style="color:#f87171;padding:20px">Error de red: ${err.message}</p>`;
@@ -1436,8 +1439,15 @@ header('Content-Type: text/html; charset=utf-8');
     }
 
     function renderPrestamosTabla(rows) {
+        const hoy = new Date().toISOString().split('T')[0];
         const filas = rows.map((p, i) => {
-            const cuota = calcCuota(parseFloat(p.monto_prestado), parseFloat(p.tasa_interes), parseInt(p.plazo_meses));
+            const cuota        = calcCuota(parseFloat(p.monto_prestado), parseFloat(p.tasa_interes), parseInt(p.plazo_meses));
+            const fechaPrest   = (p.fecha_prestamo || '').toString().substring(0, 10);
+            const btnEliminar  = fechaPrest === hoy
+                ? `<button class="btn-accion btn-del-prest"
+                        data-id="${p.id_prestamo}"
+                        title="Eliminar préstamo">❌</button>`
+                : '';
             return `<tr>
                 <td>${_regCodigo || '—'}</td>
                 <td>${fmtDate(p.fecha_prestamo)}</td>
@@ -1454,6 +1464,7 @@ header('Content-Type: text/html; charset=utf-8');
                         data-meses="${p.plazo_meses}"
                         data-fecha="${p.fecha_prestamo}"
                         title="Editar préstamo">✏️</button>
+                    ${btnEliminar}
                 </td>
             </tr>`;
         }).join('');
@@ -1534,6 +1545,27 @@ header('Content-Type: text/html; charset=utf-8');
             }
         } catch(err) { alert('Error de red: ' + err.message); }
         finally { btn.disabled = false; btn.textContent = 'Crear Préstamo'; }
+    }
+
+    // ── Eliminar Préstamo ────────────────────────────────────────────
+    async function eliminarPrestamo(id) {
+        if (!confirm('¿Está seguro que desea eliminar este préstamo?\n\nSe eliminarán también todas las cuotas generadas. Esta acción no se puede deshacer.')) return;
+        const fd = new FormData();
+        fd.append('id_prestamo', id);
+        try {
+            const res  = await fetch('/gyrosfe/api/prestamo_eliminar.php', { method: 'POST', body: fd });
+            const json = await res.json();
+            if (json.ok) {
+                await cargarPrestamos(_regUuid);
+                if (document.getElementById('tab-pagos').classList.contains('active')) {
+                    await cargarPagos(_regUuid);
+                } else {
+                    document.getElementById('pagos-content').innerHTML = '';
+                }
+            } else {
+                alert('Error: ' + (json.error ?? 'No se pudo eliminar'));
+            }
+        } catch(err) { alert('Error de red: ' + err.message); }
     }
 
     // ── Abrir modal Editar Préstamo ──────────────────────────────────
