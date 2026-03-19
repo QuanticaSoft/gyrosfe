@@ -723,7 +723,7 @@ header('Content-Type: text/html; charset=utf-8');
                                 '<?= addslashes($clObservaciones) ?>',
                                 '<?= $clFecha ?>'
                             )"
-                        >📝</button>
+                        >✏️</button>
                     </div>
                 <?php endif; ?>
                 </td>
