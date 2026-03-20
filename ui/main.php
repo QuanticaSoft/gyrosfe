@@ -613,6 +613,7 @@ header('Content-Type: text/html; charset=utf-8');
         <thead>
             <tr>
                 <th>Periodo</th>
+                <th>Código</th>
                 <th>Última conexión</th>
                 <th>Agente</th>
                 <th>Dispositivo</th>
@@ -622,7 +623,7 @@ header('Content-Type: text/html; charset=utf-8');
         </thead>
         <tbody>
         <?php if (empty($usbRows)): ?>
-            <tr><td colspan="6" style="text-align:center;color:#9aa0b8;padding:32px">No hay dispositivos online y conectados en este momento.</td></tr>
+            <tr><td colspan="7" style="text-align:center;color:#9aa0b8;padding:32px">No hay dispositivos online y conectados en este momento.</td></tr>
         <?php endif; ?>
         <?php foreach ($usbRows as $r):
             // ── Datos del dispositivo ──────────────────────────────
@@ -669,6 +670,9 @@ header('Content-Type: text/html; charset=utf-8');
             <tr>
                 <!-- Periodo -->
                 <td class="mono" style="white-space:nowrap"><?= $periodoHtml ?></td>
+
+                <!-- Código -->
+                <td class="mono"><?= $clCodigo !== '' ? $clCodigo : '<span style="color:#555c7a">—</span>' ?></td>
 
                 <!-- Última conexión -->
                 <td class="mono"><?= esc($evAt) ?></td>
