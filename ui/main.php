@@ -61,7 +61,10 @@ SELECT
   cl.garantenombre                         AS cl_garantenombre,
   cl.garantecelular                        AS cl_garantecelular,
   cl.observaciones                         AS cl_observaciones,
-  cl.fecharegistro                         AS cl_fecharegistro
+  cl.fecharegistro                         AS cl_fecharegistro,
+
+  pp.fecha_pago                            AS pp_fecha,
+  pp.estado                                AS pp_estado
 
 FROM "UsbDeviceState" uds
 JOIN "Agent" a ON a.id = uds."agentId"
@@ -73,6 +76,17 @@ LEFT JOIN LATERAL (
     LIMIT 1
 ) hb ON true
 LEFT JOIN "Cliente" cl ON cl.dispositivo = uds.serial
+LEFT JOIN LATERAL (
+    SELECT pg.fecha_pago, pg.estado
+    FROM "pago" pg
+    JOIN "prestamo" pr ON pr."id_prestamo" = pg."prestamoIdPrestamo"
+    WHERE pr."clienteIdCliente" = cl.uuid
+      AND pr."isActive" = true
+      AND pg."isActive" = true
+      AND pg.estado <> 'pagado'
+    ORDER BY pg.fecha_pago ASC
+    LIMIT 1
+) pp ON true
 
 WHERE
     -- Dispositivo físicamente conectado AHORA
@@ -598,6 +612,7 @@ header('Content-Type: text/html; charset=utf-8');
     <table id="tbl">
         <thead>
             <tr>
+                <th>Periodo</th>
                 <th>Última conexión</th>
                 <th>Agente</th>
                 <th>Dispositivo</th>
@@ -607,7 +622,7 @@ header('Content-Type: text/html; charset=utf-8');
         </thead>
         <tbody>
         <?php if (empty($usbRows)): ?>
-            <tr><td colspan="5" style="text-align:center;color:#9aa0b8;padding:32px">No hay dispositivos online y conectados en este momento.</td></tr>
+            <tr><td colspan="6" style="text-align:center;color:#9aa0b8;padding:32px">No hay dispositivos online y conectados en este momento.</td></tr>
         <?php endif; ?>
         <?php foreach ($usbRows as $r):
             // ── Datos del dispositivo ──────────────────────────────
@@ -639,8 +654,22 @@ header('Content-Type: text/html; charset=utf-8');
             $clFecha         = !empty($r['cl_fecharegistro'])
                 ? (new DateTimeImmutable($r['cl_fecharegistro'], new DateTimeZone('UTC')))->format('Y-m-d H:i')
                 : '—';
+
+            // ── Periodo: próximo pago pendiente ────────────────────
+            $ppFecha  = $r['pp_fecha']  ?? null;
+            $ppEstado = $r['pp_estado'] ?? null;
+            $periodoHtml = '<span style="color:#555c7a">—</span>';
+            if ($ppFecha !== null && $ppEstado !== null) {
+                $dtPP       = new DateTimeImmutable($ppFecha, new DateTimeZone('UTC'));
+                $mesAno     = $dtPP->format('m.y');
+                $estadoSlug = strtolower((string) $ppEstado);
+                $periodoHtml = esc($mesAno) . ' / <span class="estado-' . esc($estadoSlug) . '">' . esc((string) $ppEstado) . '</span>';
+            }
         ?>
             <tr>
+                <!-- Periodo -->
+                <td class="mono" style="white-space:nowrap"><?= $periodoHtml ?></td>
+
                 <!-- Última conexión -->
                 <td class="mono"><?= esc($evAt) ?></td>
 
