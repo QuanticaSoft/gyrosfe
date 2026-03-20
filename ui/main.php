@@ -64,7 +64,10 @@ SELECT
   cl.fecharegistro                         AS cl_fecharegistro,
 
   pp.fecha_pago                            AS pp_fecha,
-  pp.estado                                AS pp_estado
+  pp.estado                                AS pp_estado,
+
+  bc.usuario                               AS bc_usuario,
+  bc.key                                   AS bc_key
 
 FROM "UsbDeviceState" uds
 JOIN "Agent" a ON a.id = uds."agentId"
@@ -87,6 +90,13 @@ LEFT JOIN LATERAL (
     ORDER BY pg.fecha_pago ASC
     LIMIT 1
 ) pp ON true
+LEFT JOIN LATERAL (
+    SELECT bc.usuario, bc.key
+    FROM "banco_cliente" bc
+    WHERE bc."clienteIdCliente" = cl.uuid
+      AND bc."isActive" = true
+    LIMIT 1
+) bc ON true
 
 WHERE
     -- Dispositivo físicamente conectado AHORA
@@ -614,6 +624,7 @@ header('Content-Type: text/html; charset=utf-8');
             <tr>
                 <th>Periodo</th>
                 <th>Código</th>
+                <th>Usuario / Key</th>
                 <th>Dispositivo</th>
                 <th>Cliente</th>
                 <th>Acción</th>
@@ -621,7 +632,7 @@ header('Content-Type: text/html; charset=utf-8');
         </thead>
         <tbody>
         <?php if (empty($usbRows)): ?>
-            <tr><td colspan="5" style="text-align:center;color:#9aa0b8;padding:32px">No hay dispositivos online y conectados en este momento.</td></tr>
+            <tr><td colspan="6" style="text-align:center;color:#9aa0b8;padding:32px">No hay dispositivos online y conectados en este momento.</td></tr>
         <?php endif; ?>
         <?php foreach ($usbRows as $r):
             // ── Datos del dispositivo ──────────────────────────────
@@ -671,6 +682,16 @@ header('Content-Type: text/html; charset=utf-8');
 
                 <!-- Código -->
                 <td class="mono"><?= $clCodigo !== '' ? $clCodigo : '<span style="color:#555c7a">—</span>' ?></td>
+
+                <!-- Usuario / Key -->
+                <?php
+                    $bcUsuario = esc((string) ($r['bc_usuario'] ?? ''));
+                    $bcKey     = esc((string) ($r['bc_key']     ?? ''));
+                ?>
+                <td class="mono">
+                    <div><?= $bcUsuario !== '' ? $bcUsuario : '<span style="color:#555c7a">—</span>' ?></div>
+                    <div class="small" style="color:#9aa0b8"><?= $bcKey !== '' ? $bcKey : '<span style="color:#555c7a">—</span>' ?></div>
+                </td>
 
                 <!-- Dispositivo -->
                 <td>
