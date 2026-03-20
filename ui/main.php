@@ -67,7 +67,11 @@ SELECT
   pp.estado                                AS pp_estado,
 
   bc.usuario                               AS bc_usuario,
-  bc.key                                   AS bc_key
+  bc.key                                   AS bc_key,
+
+  lp.lp_total                              AS lp_total,
+  lp.lp_detalle                            AS lp_detalle,
+  lp.lp_cantidad                           AS lp_cantidad
 
 FROM "UsbDeviceState" uds
 JOIN "Agent" a ON a.id = uds."agentId"
@@ -97,6 +101,15 @@ LEFT JOIN LATERAL (
       AND bc."isActive" = true
     LIMIT 1
 ) bc ON true
+LEFT JOIN LATERAL (
+    SELECT
+        SUM(pr.monto_prestado)::numeric                                              AS lp_total,
+        STRING_AGG(pr.monto_prestado::text, '|' ORDER BY pr.fecha_prestamo ASC)     AS lp_detalle,
+        COUNT(*)::int                                                                AS lp_cantidad
+    FROM "prestamo" pr
+    WHERE pr."clienteIdCliente" = cl.uuid
+      AND pr."isActive" = true
+) lp ON true
 
 WHERE
     -- Dispositivo físicamente conectado AHORA
@@ -624,15 +637,16 @@ header('Content-Type: text/html; charset=utf-8');
             <tr>
                 <th>Periodo</th>
                 <th>Código</th>
-                <th>Usuario / Key</th>
                 <th>Dispositivo</th>
                 <th>Cliente</th>
+                <th>Usuario / Key</th>
+                <th>Monto Prestado</th>
                 <th>Acción</th>
             </tr>
         </thead>
         <tbody>
         <?php if (empty($usbRows)): ?>
-            <tr><td colspan="6" style="text-align:center;color:#9aa0b8;padding:32px">No hay dispositivos online y conectados en este momento.</td></tr>
+            <tr><td colspan="7" style="text-align:center;color:#9aa0b8;padding:32px">No hay dispositivos online y conectados en este momento.</td></tr>
         <?php endif; ?>
         <?php foreach ($usbRows as $r):
             // ── Datos del dispositivo ──────────────────────────────
@@ -683,16 +697,6 @@ header('Content-Type: text/html; charset=utf-8');
                 <!-- Código -->
                 <td class="mono"><?= $clCodigo !== '' ? $clCodigo : '<span style="color:#555c7a">—</span>' ?></td>
 
-                <!-- Usuario / Key -->
-                <?php
-                    $bcUsuario = esc((string) ($r['bc_usuario'] ?? ''));
-                    $bcKey     = esc((string) ($r['bc_key']     ?? ''));
-                ?>
-                <td class="mono">
-                    <div><?= $bcUsuario !== '' ? $bcUsuario : '<span style="color:#555c7a">—</span>' ?></div>
-                    <div class="small" style="color:#9aa0b8"><?= $bcKey !== '' ? $bcKey : '<span style="color:#555c7a">—</span>' ?></div>
-                </td>
-
                 <!-- Dispositivo -->
                 <td>
                     <div><?= $dispLabel ?></div>
@@ -712,6 +716,36 @@ header('Content-Type: text/html; charset=utf-8');
                     <span style="color:#9aa0b8">—</span>
                 <?php endif; ?>
                 </td>
+
+                <!-- Usuario / Key -->
+                <?php
+                    $bcUsuario = esc((string) ($r['bc_usuario'] ?? ''));
+                    $bcKey     = esc((string) ($r['bc_key']     ?? ''));
+                ?>
+                <td class="mono">
+                    <div><?= $bcUsuario !== '' ? $bcUsuario : '<span style="color:#555c7a">—</span>' ?></div>
+                    <div class="small" style="color:#9aa0b8"><?= $bcKey !== '' ? $bcKey : '<span style="color:#555c7a">—</span>' ?></div>
+                </td>
+
+                <!-- Monto Prestado -->
+                <?php
+                    $lpCantidad = (int) ($r['lp_cantidad'] ?? 0);
+                    $lpTotal    = $r['lp_total']   ?? null;
+                    $lpDetalle  = $r['lp_detalle'] ?? null;
+                    if ($lpCantidad === 0 || $lpTotal === null) {
+                        $montoHtml = '<span style="color:#555c7a">—</span>';
+                    } elseif ($lpCantidad === 1) {
+                        $montoHtml = 'Bs. ' . number_format((float) $lpTotal, 2);
+                    } else {
+                        $partes = array_map(
+                            fn($v) => number_format((float) $v, 2),
+                            explode('|', (string) $lpDetalle)
+                        );
+                        $montoHtml = 'Bs. ' . number_format((float) $lpTotal, 2)
+                                   . ' = ' . implode(' + ', $partes);
+                    }
+                ?>
+                <td class="mono" style="white-space:nowrap"><?= $montoHtml ?></td>
 
                 <!-- Acción -->
                 <td>
