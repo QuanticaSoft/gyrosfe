@@ -71,7 +71,11 @@ SELECT
 
   lp.lp_total                              AS lp_total,
   lp.lp_detalle                            AS lp_detalle,
-  lp.lp_cantidad                           AS lp_cantidad
+  lp.lp_cantidad                           AS lp_cantidad,
+
+  cq.cq_total                              AS cq_total,
+  cq.cq_detalle                            AS cq_detalle,
+  cq.cq_cantidad                           AS cq_cantidad
 
 FROM "UsbDeviceState" uds
 JOIN "Agent" a ON a.id = uds."agentId"
@@ -110,6 +114,20 @@ LEFT JOIN LATERAL (
     WHERE pr."clienteIdCliente" = cl.uuid
       AND pr."isActive" = true
 ) lp ON true
+LEFT JOIN LATERAL (
+    SELECT
+        SUM(pg.cuota_fija)::numeric                                                  AS cq_total,
+        STRING_AGG(pg.cuota_fija::text, '|' ORDER BY pg.fecha_pago ASC)             AS cq_detalle,
+        COUNT(*)::int                                                                AS cq_cantidad
+    FROM "pago" pg
+    JOIN "prestamo" pr ON pr."id_prestamo" = pg."prestamoIdPrestamo"
+    WHERE pr."clienteIdCliente" = cl.uuid
+      AND pr."isActive" = true
+      AND pg."isActive" = true
+      AND pg.estado = 'pendiente'
+      AND EXTRACT(YEAR  FROM pg.fecha_pago) = EXTRACT(YEAR  FROM CURRENT_DATE)
+      AND EXTRACT(MONTH FROM pg.fecha_pago) = EXTRACT(MONTH FROM CURRENT_DATE)
+) cq ON true
 
 WHERE
     -- Dispositivo físicamente conectado AHORA
@@ -641,12 +659,13 @@ header('Content-Type: text/html; charset=utf-8');
                 <th>Cliente</th>
                 <th>Usuario / Key</th>
                 <th>Monto Prestado</th>
+                <th>Cuota</th>
                 <th>Acción</th>
             </tr>
         </thead>
         <tbody>
         <?php if (empty($usbRows)): ?>
-            <tr><td colspan="7" style="text-align:center;color:#9aa0b8;padding:32px">No hay dispositivos online y conectados en este momento.</td></tr>
+            <tr><td colspan="8" style="text-align:center;color:#9aa0b8;padding:32px">No hay dispositivos online y conectados en este momento.</td></tr>
         <?php endif; ?>
         <?php foreach ($usbRows as $r):
             // ── Datos del dispositivo ──────────────────────────────
@@ -746,6 +765,26 @@ header('Content-Type: text/html; charset=utf-8');
                     }
                 ?>
                 <td class="mono" style="white-space:nowrap"><?= $montoHtml ?></td>
+
+                <!-- Cuota -->
+                <?php
+                    $cqCantidad = (int) ($r['cq_cantidad'] ?? 0);
+                    $cqTotal    = $r['cq_total']   ?? null;
+                    $cqDetalle  = $r['cq_detalle'] ?? null;
+                    if ($cqCantidad === 0 || $cqTotal === null) {
+                        $cuotaHtml = '<span style="color:#555c7a">—</span>';
+                    } elseif ($cqCantidad === 1) {
+                        $cuotaHtml = 'Bs. ' . number_format((float) $cqTotal, 2);
+                    } else {
+                        $partesCq = array_map(
+                            fn($v) => number_format((float) $v, 2),
+                            explode('|', (string) $cqDetalle)
+                        );
+                        $cuotaHtml = 'Bs. ' . number_format((float) $cqTotal, 2)
+                                   . ' = ' . implode(' + ', $partesCq);
+                    }
+                ?>
+                <td class="mono" style="white-space:nowrap"><?= $cuotaHtml ?></td>
 
                 <!-- Acción -->
                 <td>
