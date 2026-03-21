@@ -719,10 +719,7 @@ header('Content-Type: text/html; charset=utf-8');
 
                 <!-- Dispositivo -->
                 <td>
-                    <div><?= $dispLabel ?></div>
-                    <?php if ($serial !== ''): ?>
-                        <div class="small mono"><?= $serial ?></div>
-                    <?php endif; ?>
+                    <div class="mono"><?= $serial !== '' ? $serial : '—' ?></div>
                     <div class="small" style="color:#9aa0b8;margin-top:3px">🖥 <?= $agente ?></div>
                     <div class="small mono" style="color:#555c7a"><?= esc($evAt) ?></div>
                 </td>
