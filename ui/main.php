@@ -660,6 +660,7 @@ header('Content-Type: text/html; charset=utf-8');
                 <th>Usuario / Key</th>
                 <th>Monto Prestado</th>
                 <th>Cuota</th>
+                <th>Debitar</th>
                 <th>Acción</th>
             </tr>
         </thead>
@@ -786,6 +787,19 @@ header('Content-Type: text/html; charset=utf-8');
                 ?>
                 <td class="mono" style="white-space:nowrap"><?= $cuotaHtml ?></td>
 
+                <!-- Debitar -->
+                <td style="text-align:center">
+                <?php if ((int)($r['lp_cantidad'] ?? 0) > 0): ?>
+                    <input type="text" class="input-debitar" value="0.00"
+                           inputmode="decimal"
+                           style="width:90px;text-align:right;background:#1a1f35;border:1px solid #3a4060;border-radius:4px;color:#e0e4f0;font-family:monospace;font-size:.82rem;padding:3px 6px;"
+                           onfocus="if(this.value==='0.00')this.value=''"
+                           onblur="fmtDebitarInput(this)">
+                <?php else: ?>
+                    <span style="color:#555c7a">—</span>
+                <?php endif; ?>
+                </td>
+
                 <!-- Acción -->
                 <td>
                 <?php if (!$registrado): ?>
@@ -802,6 +816,7 @@ header('Content-Type: text/html; charset=utf-8');
                 <?php else: ?>
                     <div style="display:inline-flex;align-items:center;gap:2px">
                         <!-- 📲 Registro/expediente del cliente — izquierda -->
+
                         <button
                             class="btn-accion"
                             title="Registro del cliente"
@@ -823,6 +838,7 @@ header('Content-Type: text/html; charset=utf-8');
                                 'dispositivo'    => trim(($r['ev_vendor'] ?? '') . ' ' . ($r['ev_product'] ?? '')),
                             ]), ENT_QUOTES, 'UTF-8') ?>)"
                         >📲</button>
+                        <span style="color:#3a4060;margin:0 2px">|</span>
                         <!-- 📝 Ver / Editar cliente — derecha -->
                         <button
                             class="btn-accion"
@@ -1475,6 +1491,10 @@ header('Content-Type: text/html; charset=utf-8');
     function fmtMoney(v) {
         if (v === null || v === undefined || v === '') return '—';
         return 'Bs ' + parseFloat(v).toFixed(2);
+    }
+    function fmtDebitarInput(el) {
+        const v = parseFloat(el.value.replace(',', '.'));
+        el.value = isNaN(v) ? '0.00' : v.toFixed(2);
     }
     function fmtDate(d) {
         if (!d) return '—';
