@@ -242,6 +242,50 @@ header('Content-Type: text/html; charset=utf-8');
         .info-cell p { margin:2px 0 0; font-size:.9rem; }
 
         /* ── Badge online en toolbar ───────────────────────────── */
+        .tabla-cabecera {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 14px;
+            background: #131624;
+            border-bottom: 1px solid #1e2235;
+        }
+        .tabla-cabecera-titulo {
+            font-size: .82rem;
+            font-weight: 700;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+            color: #e0e4f0;
+        }
+        .tabla-cabecera-controles {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .tabla-cabecera select {
+            background: #1a1f35;
+            color: #c0c8e8;
+            border: 1px solid #2a2f45;
+            border-radius: 6px;
+            padding: 4px 10px;
+            font-size: .78rem;
+            cursor: pointer;
+            outline: none;
+        }
+        .tabla-cabecera select:hover {
+            border-color: #4a5080;
+        }
+        .btn-refresh {
+            background: #1a1f35;
+            border: 1px solid #2a2f45;
+            border-radius: 6px;
+            padding: 4px 9px;
+            font-size: .88rem;
+            cursor: pointer;
+            color: #c0c8e8;
+            line-height: 1;
+        }
+        .btn-refresh:hover { border-color: #4a5080; }
         .badge-online {
             display: inline-flex;
             align-items: center;
@@ -650,6 +694,25 @@ header('Content-Type: text/html; charset=utf-8');
     </div>
 
     <!-- ── Tabla: dispositivos ONLINE + conectados ahora ─────────── -->
+    <div class="tabla-cabecera">
+        <span class="tabla-cabecera-titulo">Lista de Clientes</span>
+        <div class="tabla-cabecera-controles">
+            <select id="fil-sector" onchange="filterRows()">
+                <option value="">Todos los sectores</option>
+                <option value="Salud">Salud</option>
+                <option value="Magisterio">Magisterio</option>
+                <option value="Petrolero">Petrolero</option>
+                <option value="Comerciantes">Comerciantes</option>
+                <option value="Otros">Otros</option>
+            </select>
+            <select id="fil-estado" onchange="filterRows()">
+                <option value="">Todos los estados</option>
+                <option value="1">Activos</option>
+                <option value="0">Inactivos</option>
+            </select>
+            <button class="btn-refresh" title="Refrescar" onclick="location.reload()">🔁</button>
+        </div>
+    </div>
     <table id="tbl">
         <thead>
             <tr>
@@ -692,6 +755,7 @@ header('Content-Type: text/html; charset=utf-8');
             $clCodigo        = esc((string) ($r['cl_codigo']        ?? ''));
             $clSector        = esc((string) ($r['cl_sector']        ?? ''));
             $clActivo        = !empty($r['cl_activo']) ? 'Sí' : 'No';
+            $clActivoVal     = !empty($r['cl_activo']) ? '1' : '0';
             $clGaranteNombre = esc((string) ($r['cl_garantenombre'] ?? ''));
             $clGaranteCel    = esc((string) ($r['cl_garantecelular']?? ''));
             $clObservaciones = esc((string) ($r['cl_observaciones'] ?? ''));
@@ -710,7 +774,7 @@ header('Content-Type: text/html; charset=utf-8');
                 $periodoHtml = esc($mesAno) . ' / <span class="estado-' . esc($estadoSlug) . '">' . esc((string) $ppEstado) . '</span>';
             }
         ?>
-            <tr>
+            <tr data-sector="<?= $clSector ?>" data-activo="<?= $clActivoVal ?>">
                 <!-- Periodo -->
                 <td class="mono" style="white-space:nowrap"><?= $periodoHtml ?></td>
 
@@ -813,7 +877,6 @@ header('Content-Type: text/html; charset=utf-8');
                 <?php else: ?>
                     <div style="display:inline-flex;align-items:center;gap:2px">
                         <!-- 📲 Registro/expediente del cliente — izquierda -->
-
                         <button
                             class="btn-accion"
                             title="Registro del cliente"
@@ -1267,11 +1330,18 @@ header('Content-Type: text/html; charset=utf-8');
     <script>
     // ── Filtro de búsqueda ───────────────────────────────────────
     function filterRows() {
-        const q = document.getElementById('q').value.toLowerCase().trim();
-        const rows = document.querySelectorAll('#tbl tbody tr');
+        const q       = document.getElementById('q').value.toLowerCase().trim();
+        const sector  = document.getElementById('fil-sector').value;
+        const estado  = document.getElementById('fil-estado').value;
+        const rows    = document.querySelectorAll('#tbl tbody tr');
         rows.forEach(tr => {
-            const txt = tr.innerText.toLowerCase();
-            tr.style.display = (q === '' || txt.includes(q)) ? '' : 'none';
+            const txt        = tr.innerText.toLowerCase();
+            const trSector   = tr.dataset.sector  ?? '';
+            const trActivo   = tr.dataset.activo  ?? '';
+            const okQ      = q      === '' || txt.includes(q);
+            const okSector = sector === '' || trSector === sector;
+            const okEstado = estado === '' || trActivo === estado;
+            tr.style.display = (okQ && okSector && okEstado) ? '' : 'none';
         });
     }
 
