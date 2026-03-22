@@ -679,10 +679,12 @@ header('Content-Type: text/html; charset=utf-8');
 
         <!-- Main Content -->
         <main class="main-content">
+          <!--
           <section class="top-cards"></section>
           <section class="clientes-section">
             <div class="card lista-clientes-card"></div>
           </section>
+          -->
         </main>
     </div>
 
