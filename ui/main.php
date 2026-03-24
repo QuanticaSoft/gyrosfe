@@ -776,7 +776,7 @@ header('Content-Type: text/html; charset=utf-8');
                 $periodoHtml = esc($mesAno) . ' / <span class="estado-' . esc($estadoSlug) . '">' . esc((string) $ppEstado) . '</span>';
             }
         ?>
-            <tr data-sector="<?= $clSector ?>" data-activo="<?= $clActivoVal ?>">
+            <tr data-sector="<?= $clSector ?>" data-activo="<?= $clActivoVal ?>" data-uuid="<?= $clienteUuid ?>">
                 <!-- Periodo -->
                 <td class="mono" style="white-space:nowrap"><?= $periodoHtml ?></td>
 
@@ -2007,6 +2007,10 @@ header('Content-Type: text/html; charset=utf-8');
                 chk.checked = !activo;
                 actualizarToggleLabel(!activo);
                 alert('Error al cambiar estado: ' + (json.error ?? 'Desconocido'));
+            } else {
+                // Actualizar data-activo en la fila de la tabla principal
+                const row = document.querySelector(`#tbl tbody tr[data-uuid="${uuid}"]`);
+                if (row) row.dataset.activo = activo ? '1' : '0';
             }
         } catch (err) {
             chk.checked = !activo;
