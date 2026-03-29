@@ -606,6 +606,117 @@ header('Content-Type: text/html; charset=utf-8');
         .estado-parcial  { color: #60a5fa; font-weight: 700; }
         .estado-default  { color: #9aa0b8; }
 
+        /* ── Tab Banco ───────────────────────────────────────────── */
+        .banco-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px;
+            padding: 14px 0;
+        }
+        .banco-card {
+            border: 1px solid #1e2235;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .banco-card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            background: #0d1120;
+            border-bottom: 1px solid #1e2235;
+            min-height: 56px;
+        }
+        .banco-logo-wrap {
+            width: 72px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #fff;
+            border-radius: 6px;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        .banco-logo-wrap img {
+            max-width: 68px;
+            max-height: 32px;
+            object-fit: contain;
+        }
+        .banco-logo-placeholder {
+            width: 72px;
+            height: 36px;
+            border-radius: 6px;
+            background: #1e2235;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: .7rem;
+            color: #555c7a;
+            flex-shrink: 0;
+        }
+        .banco-card-title {
+            font-size: .8rem;
+            font-weight: 600;
+            color: #c0c8e8;
+        }
+        .banco-card-body {
+            padding: 12px 14px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px 12px;
+        }
+        .banco-card-body .full { grid-column: span 2; }
+        .banco-field label {
+            display: block;
+            font-size: .7rem;
+            color: #555c7a;
+            margin-bottom: 3px;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+        }
+        .banco-field input,
+        .banco-field select,
+        .banco-field textarea {
+            width: 100%;
+            box-sizing: border-box;
+            background: #0d1120;
+            border: 1px solid #2a2f45;
+            border-radius: 6px;
+            color: #e0e4f0;
+            padding: 5px 8px;
+            font-size: .82rem;
+            outline: none;
+        }
+        .banco-field textarea { resize: vertical; min-height: 48px; }
+        .banco-field input:focus,
+        .banco-field select:focus { border-color: #4a6fa5; }
+        .bc-btn-view, .bc-btn-edit { display: flex; align-items: center; }
+        .bc-view-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2px 0;
+            padding: 10px 14px;
+        }
+        .bc-view-row {
+            display: flex;
+            flex-direction: column;
+            padding: 6px 8px;
+            border-bottom: 1px solid #1a1f35;
+        }
+        .bc-view-row.full { grid-column: span 2; }
+        .bc-lbl {
+            font-size: .65rem;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            color: #555c7a;
+            margin-bottom: 2px;
+        }
+        .bc-val {
+            font-size: .82rem;
+            color: #c0c8e8;
+        }
+
         /* ── Modal genérico flotante (préstamos) ────────────────── */
         .modal-float {
             display: none;
@@ -1231,10 +1342,96 @@ header('Content-Type: text/html; charset=utf-8');
 
                 <!-- ── BANCO ─────────────────────────────────────── -->
                 <div id="tab-banco" class="tab-panel">
-                    <div class="tab-placeholder">
-                        <span>🏦</span>
-                        Módulo Bancario — próximamente
-                    </div>
+                    <div class="banco-grid">
+
+                        <?php foreach ([1, 2] as $n): ?>
+                        <!-- Cuenta <?= $n ?> -->
+                        <div class="banco-card" id="bc<?= $n ?>-card">
+                            <!-- Cabecera -->
+                            <div class="banco-card-header">
+                                <div class="banco-logo-wrap" id="bc<?= $n ?>-logo-wrap" style="display:none">
+                                    <img id="bc<?= $n ?>-logo-img" src="" alt="logo">
+                                </div>
+                                <div class="banco-logo-placeholder" id="bc<?= $n ?>-logo-ph">🏦</div>
+                                <span class="banco-card-title" style="flex:1">Cuenta <?= $n ?></span>
+                                <!-- Botones modo VISTA -->
+                                <div class="bc-btn-view" id="bc<?= $n ?>-btns-view">
+                                    <button class="btn-accion" title="Editar cuenta" onclick="bcModoEditar(<?= $n ?>)">✏️</button>
+                                </div>
+                                <!-- Botones modo EDICIÓN -->
+                                <div class="bc-btn-edit" id="bc<?= $n ?>-btns-edit" style="display:none;gap:6px">
+                                    <button class="btn-primary" id="bc<?= $n ?>-btn-save" style="padding:3px 10px;font-size:.78rem" onclick="bcGuardarCuenta(<?= $n ?>)">💾 Guardar</button>
+                                    <button class="btn-accion" title="Cancelar" onclick="bcModoVista(<?= $n ?>)">✕</button>
+                                </div>
+                            </div>
+
+                            <!-- MODO VISTA -->
+                            <div class="bc-view" id="bc<?= $n ?>-view">
+                                <div class="bc-view-grid">
+                                    <div class="bc-view-row"><span class="bc-lbl">N° Cuenta</span><span class="bc-val" id="bc<?= $n ?>-v-nocta">—</span></div>
+                                    <div class="bc-view-row"><span class="bc-lbl">Titular</span><span class="bc-val" id="bc<?= $n ?>-v-nombre">—</span></div>
+                                    <div class="bc-view-row"><span class="bc-lbl">Moneda</span><span class="bc-val" id="bc<?= $n ?>-v-moneda">—</span></div>
+                                    <div class="bc-view-row"><span class="bc-lbl">Nickname</span><span class="bc-val" id="bc<?= $n ?>-v-nickname">—</span></div>
+                                    <div class="bc-view-row"><span class="bc-lbl">Usuario</span><span class="bc-val" id="bc<?= $n ?>-v-usuario">—</span></div>
+                                    <div class="bc-view-row"><span class="bc-lbl">Key</span><span class="bc-val" id="bc<?= $n ?>-v-key">—</span></div>
+                                    <div class="bc-view-row full"><span class="bc-lbl">Nota</span><span class="bc-val" id="bc<?= $n ?>-v-nota">—</span></div>
+                                </div>
+                            </div>
+
+                            <!-- MODO EDICIÓN -->
+                            <div class="bc-edit" id="bc<?= $n ?>-edit" style="display:none">
+                                <div class="banco-card-body">
+                                    <div class="banco-field full">
+                                        <label>Banco</label>
+                                        <select id="bc<?= $n ?>-banco" onchange="bcLogoUpdate(<?= $n ?>)">
+                                            <option value="">— Seleccionar banco —</option>
+                                            <option value="Banco Union">Banco Unión</option>
+                                            <option value="Banco Nacional de Bolivia">Banco Nacional de Bolivia</option>
+                                            <option value="Banco Mercantil Santa Cruz">Banco Mercantil Santa Cruz</option>
+                                            <option value="Banco Economico">Banco Económico</option>
+                                        </select>
+                                    </div>
+                                    <div class="banco-field full">
+                                        <label>N° Cuenta</label>
+                                        <input type="text" id="bc<?= $n ?>-nocta" placeholder="Número de cuenta">
+                                    </div>
+                                    <div class="banco-field full">
+                                        <label>Nombre titular</label>
+                                        <input type="text" id="bc<?= $n ?>-nombre" placeholder="Nombre completo">
+                                    </div>
+                                    <div class="banco-field">
+                                        <label>Moneda</label>
+                                        <select id="bc<?= $n ?>-moneda">
+                                            <option value="BOB">BOB — Bolivianos</option>
+                                            <option value="USD">USD — Dólares</option>
+                                        </select>
+                                    </div>
+                                    <div class="banco-field">
+                                        <label>Nickname</label>
+                                        <select id="bc<?= $n ?>-nickname">
+                                            <option value="">— Seleccionar —</option>
+                                            <option value="pago">Pago</option>
+                                            <option value="devolución">Devolución</option>
+                                        </select>
+                                    </div>
+                                    <div class="banco-field">
+                                        <label>Usuario</label>
+                                        <input type="text" id="bc<?= $n ?>-usuario" placeholder="Usuario banca en línea">
+                                    </div>
+                                    <div class="banco-field">
+                                        <label>Key / Contraseña</label>
+                                        <input type="text" id="bc<?= $n ?>-key" placeholder="Contraseña">
+                                    </div>
+                                    <div class="banco-field full">
+                                        <label>Nota</label>
+                                        <textarea id="bc<?= $n ?>-nota" placeholder="Observaciones..."></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <?php endforeach; ?>
+
+                    </div><!-- /banco-grid -->
                 </div>
 
             </div><!-- /tab-body -->
@@ -1345,6 +1542,156 @@ header('Content-Type: text/html; charset=utf-8');
             const okEstado = estado === '' || trActivo === estado;
             tr.style.display = (okQ && okSector && okEstado) ? '' : 'none';
         });
+    }
+
+    // ── Tab Banco ────────────────────────────────────────────────
+    const BC_LOGOS = {
+        'Banco Union':                'https://bancounion.com.bo/Imagenes/bancounionlarge_transac.png',
+        'Banco Nacional de Bolivia':  'http://www.bnb.com.bo/PortalBNB/Images/PNG_BNB_Blanco.png',
+        'Banco Mercantil Santa Cruz': 'https://images.seeklogo.com/logo-png/52/1/banco-mercantil-santa-cruz-logo-png_seeklogo-529700.png',
+        'Banco Economico':            'https://www.baneco.com.bo/images/logo-baneco.webp',
+    };
+
+    // Datos en memoria para poder cancelar edición
+    const _bcData = { 1: {}, 2: {} };
+
+    function bcLogoUpdate(n) {
+        const banco = document.getElementById(`bc${n}-banco`).value;
+        const wrap  = document.getElementById(`bc${n}-logo-wrap`);
+        const img   = document.getElementById(`bc${n}-logo-img`);
+        const ph    = document.getElementById(`bc${n}-logo-ph`);
+        if (banco && BC_LOGOS[banco]) {
+            img.src = BC_LOGOS[banco];
+            wrap.style.display = ''; ph.style.display = 'none';
+        } else {
+            wrap.style.display = 'none'; ph.style.display = '';
+        }
+    }
+
+    function bcModoVista(n) {
+        document.getElementById(`bc${n}-view`).style.display = '';
+        document.getElementById(`bc${n}-edit`).style.display = 'none';
+        document.getElementById(`bc${n}-btns-view`).style.display = '';
+        document.getElementById(`bc${n}-btns-edit`).style.display = 'none';
+        // Restaurar logo según banco guardado
+        const saved = _bcData[n].banco ?? '';
+        const wrap  = document.getElementById(`bc${n}-logo-wrap`);
+        const img   = document.getElementById(`bc${n}-logo-img`);
+        const ph    = document.getElementById(`bc${n}-logo-ph`);
+        if (saved && BC_LOGOS[saved]) {
+            img.src = BC_LOGOS[saved]; wrap.style.display = ''; ph.style.display = 'none';
+        } else {
+            wrap.style.display = 'none'; ph.style.display = '';
+        }
+    }
+
+    function bcModoEditar(n) {
+        // Poblar inputs con datos actuales
+        const acc = _bcData[n];
+        document.getElementById(`bc${n}-banco`).value    = acc.banco    ?? '';
+        document.getElementById(`bc${n}-nocta`).value    = acc.nocta    ?? '';
+        document.getElementById(`bc${n}-nombre`).value   = acc.nombre   ?? '';
+        document.getElementById(`bc${n}-moneda`).value   = acc.moneda   ?? 'BOB';
+        document.getElementById(`bc${n}-usuario`).value  = acc.usuario  ?? '';
+        document.getElementById(`bc${n}-key`).value      = acc.key      ?? '';
+        document.getElementById(`bc${n}-nickname`).value = acc.nickname ?? '';
+        document.getElementById(`bc${n}-nota`).value     = acc.nota     ?? '';
+        bcLogoUpdate(n);
+        document.getElementById(`bc${n}-view`).style.display = 'none';
+        document.getElementById(`bc${n}-edit`).style.display = '';
+        document.getElementById(`bc${n}-btns-view`).style.display = 'none';
+        document.getElementById(`bc${n}-btns-edit`).style.display = 'flex';
+    }
+
+    function bcActualizarVista(n, acc) {
+        const v = k => acc[k] ?? '—';
+        document.getElementById(`bc${n}-v-nocta`).textContent    = v('nocta')    || v('noCta');
+        document.getElementById(`bc${n}-v-nombre`).textContent   = v('nombre');
+        document.getElementById(`bc${n}-v-moneda`).textContent   = v('moneda');
+        document.getElementById(`bc${n}-v-nickname`).textContent = v('nickname');
+        document.getElementById(`bc${n}-v-usuario`).textContent  = v('usuario');
+        document.getElementById(`bc${n}-v-key`).textContent      = v('key');
+        document.getElementById(`bc${n}-v-nota`).textContent     = v('nota');
+    }
+
+    async function cargarBanco(uuid) {
+        _bcData[1] = {}; _bcData[2] = {};
+        bcActualizarVista(1, {}); bcActualizarVista(2, {});
+        bcModoVista(1); bcModoVista(2);
+        try {
+            const res  = await fetch(`/gyrosfe/api/banco_listar.php?uuid=${encodeURIComponent(uuid)}`);
+            const data = await res.json();
+            if (!data.ok) return;
+            [1, 2].forEach((n, i) => {
+                if (data.data[i]) {
+                    // normalizar clave noCta (PDO devuelve minúsculas)
+                    const acc = data.data[i];
+                    acc.nocta = acc.nocta ?? acc.noCta ?? '';
+                    _bcData[n] = acc;
+                    bcActualizarVista(n, acc);
+                    bcModoVista(n);
+                }
+            });
+        } catch (e) { console.error('cargarBanco', e); }
+    }
+
+    async function bcGuardarCuenta(n) {
+        const btn = document.getElementById(`bc${n}-btn-save`);
+        if (!btn) { console.error('bcGuardarCuenta: btn no encontrado', n); return; }
+        btn.disabled = true; btn.textContent = '…';
+
+        try {
+            const g = id => { const el = document.getElementById(id); if (!el) throw new Error(`Elemento no encontrado: ${id}`); return el; };
+
+            const acc = {
+                banco:    g(`bc${n}-banco`).value.trim(),
+                noCta:    g(`bc${n}-nocta`).value.trim(),
+                nombre:   g(`bc${n}-nombre`).value.trim(),
+                moneda:   g(`bc${n}-moneda`).value,
+                usuario:  g(`bc${n}-usuario`).value.trim(),
+                key:      g(`bc${n}-key`).value.trim(),
+                nickname: g(`bc${n}-nickname`).value,
+                nota:     g(`bc${n}-nota`).value.trim(),
+                isActive: true,
+            };
+
+            const other    = n === 1 ? 2 : 1;
+            const otherAcc = {
+                banco:    _bcData[other].banco    ?? '',
+                noCta:    _bcData[other].nocta    ?? _bcData[other].noCta ?? '',
+                nombre:   _bcData[other].nombre   ?? '',
+                moneda:   _bcData[other].moneda   ?? 'BOB',
+                usuario:  _bcData[other].usuario  ?? '',
+                key:      _bcData[other].key      ?? '',
+                nickname: _bcData[other].nickname ?? '',
+                nota:     _bcData[other].nota     ?? '',
+                isActive: true,
+            };
+
+            const accounts = n === 1 ? [acc, otherAcc] : [otherAcc, acc];
+            const fd = new FormData();
+            fd.append('clienteUuid', _regUuid);
+            fd.append('accounts', JSON.stringify(accounts));
+
+            const res  = await fetch('/gyrosfe/api/banco_guardar.php', { method: 'POST', body: fd });
+            const text = await res.text();
+            let data;
+            try { data = JSON.parse(text); } catch { throw new Error('Respuesta inválida: ' + text.substring(0, 200)); }
+
+            if (data.ok) {
+                acc.nocta = acc.noCta;
+                _bcData[n] = acc;
+                btn.disabled = false; btn.textContent = '💾 Guardar';
+                bcActualizarVista(n, acc);
+                bcModoVista(n);
+            } else {
+                alert('Error: ' + (data.error ?? 'desconocido'));
+                btn.disabled = false; btn.textContent = '💾 Guardar';
+            }
+        } catch (e) {
+            alert('Error: ' + e.message);
+            btn.disabled = false; btn.textContent = '💾 Guardar';
+        }
     }
 
     // ── Helpers de modal ─────────────────────────────────────────
@@ -1531,6 +1878,7 @@ header('Content-Type: text/html; charset=utf-8');
         // Cargar datos dinámicos según tab
         if (tabId === 'tab-prestamos' && _regUuid) cargarPrestamos(_regUuid);
         if (tabId === 'tab-pagos'     && _regUuid) cargarPagos(_regUuid);
+        if (tabId === 'tab-banco'     && _regUuid) cargarBanco(_regUuid);
     }
 
     document.getElementById('reg-tabs').addEventListener('click', function(e) {
