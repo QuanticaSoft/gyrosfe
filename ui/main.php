@@ -69,6 +69,9 @@ SELECT
   bc.usuario                               AS bc_usuario,
   bc.key                                   AS bc_key,
 
+  sl.saldo                                 AS sl_saldo,
+  sl.fecha_hora                            AS sl_fecha_hora,
+
   lp.lp_total                              AS lp_total,
   lp.lp_detalle                            AS lp_detalle,
   lp.lp_cantidad                           AS lp_cantidad,
@@ -105,6 +108,13 @@ LEFT JOIN LATERAL (
       AND bc."isActive" = true
     LIMIT 1
 ) bc ON true
+LEFT JOIN LATERAL (
+    SELECT s.saldo, s.fecha_hora
+    FROM saldo s
+    WHERE s.cliente_id = cl.uuid
+    ORDER BY s.fecha_hora DESC
+    LIMIT 1
+) sl ON true
 LEFT JOIN LATERAL (
     SELECT
         SUM(pr.monto_prestado)::numeric                                              AS lp_total,
@@ -573,6 +583,20 @@ header('Content-Type: text/html; charset=utf-8');
         }
         .pago-bloque-header strong { color: #7b93ff; }
         .pago-table-wrap { overflow-x: auto; }
+        .pago-fecha-input {
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: 4px;
+            color: #c0c8e8;
+            font-size: .76rem;
+            padding: 2px 4px;
+            width: 110px;
+            cursor: pointer;
+            color-scheme: dark;
+        }
+        .pago-fecha-input:hover { border-color: #4a5080; }
+        .pago-fecha-input:focus { border-color: #7b93ff; outline: none; background: #0d1120; }
+        .pago-fecha-input.saving { opacity: .5; pointer-events: none; }
         .pago-table {
             width: 100%;
             border-collapse: collapse;
@@ -833,6 +857,7 @@ header('Content-Type: text/html; charset=utf-8');
                 <th>Código</th>
                 <th>Dispositivo</th>
                 <th>Cliente</th>
+                <th>Saldo en Banco</th>
                 <th>Usuario / Key</th>
                 <th>Monto Prestado</th>
                 <th>Cuota</th>
@@ -842,7 +867,7 @@ header('Content-Type: text/html; charset=utf-8');
         </thead>
         <tbody>
         <?php if (empty($usbRows)): ?>
-            <tr><td colspan="8" style="text-align:center;color:#9aa0b8;padding:32px">No hay dispositivos online y conectados en este momento.</td></tr>
+            <tr><td colspan="10" style="text-align:center;color:#9aa0b8;padding:32px">No hay dispositivos online y conectados en este momento.</td></tr>
         <?php endif; ?>
         <?php foreach ($usbRows as $r):
             // ── Datos del dispositivo ──────────────────────────────
@@ -910,6 +935,23 @@ header('Content-Type: text/html; charset=utf-8');
                     <span style="color:#9aa0b8">—</span>
                 <?php endif; ?>
                 </td>
+
+                <!-- Saldo en Banco -->
+                <?php
+                    $slSaldo     = $r['sl_saldo']     ?? null;
+                    $slFechaHora = $r['sl_fecha_hora'] ?? null;
+                    if ($slSaldo !== null) {
+                        $saldoHtml = '<span style="color:#34d399;font-weight:700">Bs. ' . number_format((float) $slSaldo, 2) . '</span>';
+                        if ($slFechaHora !== null) {
+                            $dtSl = (new DateTimeImmutable($slFechaHora, new DateTimeZone('UTC')))
+                                ->setTimezone(new DateTimeZone('America/La_Paz'));
+                            $saldoHtml .= '<div class="small" style="color:#9aa0b8;margin-top:2px">' . esc($dtSl->format('d/m/y H:i')) . '</div>';
+                        }
+                    } else {
+                        $saldoHtml = '<span style="color:#555c7a">—</span>';
+                    }
+                ?>
+                <td class="mono" id="saldo-cell-<?= esc($clienteUuid) ?>" style="white-space:nowrap"><?= $saldoHtml ?></td>
 
                 <!-- Usuario / Key -->
                 <?php
@@ -1034,6 +1076,13 @@ header('Content-Type: text/html; charset=utf-8');
                                 '<?= $clFecha ?>'
                             )"
                         >✏️</button>
+                        <span style="color:#3a4060;margin:0 2px">|</span>
+                        <!-- 💰 Consulta de Saldo -->
+                        <button
+                            class="btn-accion"
+                            title="Consulta de Saldo"
+                            onclick="consultaSaldo('<?= $clienteUuid ?>')"
+                        ><img src="/gyrosfe/assets/img/cta_cliente.svg" style="width:1.3rem;height:1.3rem;vertical-align:middle"></button>
                     </div>
                 <?php endif; ?>
                 </td>
@@ -2186,6 +2235,31 @@ header('Content-Type: text/html; charset=utf-8');
             content.querySelectorAll('.btn-reg-pago').forEach(btn => {
                 btn.addEventListener('click', () => abrirRegPago(btn.dataset));
             });
+            // Eventos en inputs de fecha de pago
+            content.querySelectorAll('.pago-fecha-input').forEach(inp => {
+                inp.addEventListener('change', async function() {
+                    const idPago    = this.dataset.id;
+                    const fechaPago = this.value;
+                    if (!fechaPago) return;
+                    this.classList.add('saving');
+                    try {
+                        const fd = new FormData();
+                        fd.append('id_pago',    idPago);
+                        fd.append('fecha_pago', fechaPago);
+                        const res  = await fetch('/gyrosfe/api/pago_fecha.php', { method: 'POST', body: fd });
+                        const data = await res.json();
+                        if (data.ok) {
+                            await cargarPagos(_regUuid);
+                        } else {
+                            alert('Error al actualizar fecha: ' + (data.error ?? 'desconocido'));
+                            this.classList.remove('saving');
+                        }
+                    } catch(e) {
+                        alert('Error de red: ' + e.message);
+                        this.classList.remove('saving');
+                    }
+                });
+            });
         } catch(err) {
             loading.style.display = 'none';
             content.innerHTML = `<p style="color:#f87171;padding:20px">Error de red: ${err.message}</p>`;
@@ -2237,9 +2311,10 @@ header('Content-Type: text/html; charset=utf-8');
                 }
             }
             const saldoFin = parseFloat(c.saldo_deudor ?? 0).toFixed(2);
-            return `<tr>
+            const fechaVal = c.fecha_pago ? c.fecha_pago.substring(0, 10) : '';
+            return `<tr data-id-pago="${c.id_pago}">
                 <td>${c.mes}</td>
-                <td>${fmtDate(c.fecha_pago)}</td>
+                <td><input type="date" class="pago-fecha-input" data-id="${c.id_pago}" value="${fechaVal}"></td>
                 <td>${fmtMoney(c.cuota_fija)}</td>
                 <td>${fmtMoney(c.monto_a_interes)}</td>
                 <td>${fmtMoney(c.monto_a_devolucion_kapital)}</td>
@@ -2330,6 +2405,46 @@ header('Content-Type: text/html; charset=utf-8');
             }
         } catch(err) { alert('Error de red: ' + err.message); }
         finally { btn.disabled = false; btn.textContent = 'Guardar Pago'; }
+    }
+
+    // ── Consulta de Saldo ────────────────────────────────────────
+    async function consultaSaldo(uuid) {
+        const btn  = document.querySelector(`button[onclick*="consultaSaldo('${uuid}')"]`);
+        const cell = document.getElementById(`saldo-cell-${uuid}`);
+
+        // Estado de carga
+        if (btn)  { btn.disabled = true; btn.style.opacity = '0.4'; }
+        if (cell) { cell.innerHTML = '<span style="color:#9aa0b8;font-size:.8rem">Consultando…</span>'; }
+
+        try {
+            const fd = new FormData();
+            fd.append('uuid', uuid);
+            const res  = await fetch('/gyrosfe/api/consulta_saldo.php', { method: 'POST', body: fd });
+            const data = await res.json();
+
+            if (data.ok) {
+                const saldoFmt = parseFloat(data.saldo).toFixed(2);
+                const fechaFmt = data.fecha_hora
+                    ? new Date(data.fecha_hora).toLocaleString('es-BO', {
+                        day: '2-digit', month: '2-digit', year: '2-digit',
+                        hour: '2-digit', minute: '2-digit'
+                      })
+                    : '';
+                if (cell) {
+                    cell.innerHTML =
+                        `<span style="color:#34d399;font-weight:700">Bs. ${saldoFmt}</span>` +
+                        (fechaFmt ? `<div class="small" style="color:#9aa0b8;margin-top:2px">${fechaFmt}</div>` : '');
+                }
+            } else {
+                if (cell) { cell.innerHTML = '<span style="color:#f87171;font-size:.78rem">Error</span>'; }
+                alert('Error al consultar saldo: ' + (data.error ?? 'desconocido'));
+            }
+        } catch (err) {
+            if (cell) { cell.innerHTML = '<span style="color:#f87171;font-size:.78rem">Error red</span>'; }
+            alert('Error de red: ' + err.message);
+        } finally {
+            if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+        }
     }
 
     async function toggleActivo(chk) {
