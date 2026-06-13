@@ -64,7 +64,7 @@ try {
         'dispositivo'    => $cliente['dispositivo'],
     ]);
 
-    $ch = curl_init('http://100.107.84.95:8080/consultar-saldo');
+    $ch = curl_init('http://127.0.0.1:8080/consultar-saldo');
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_POST           => true,
