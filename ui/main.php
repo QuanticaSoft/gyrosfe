@@ -2412,14 +2412,22 @@ header('Content-Type: text/html; charset=utf-8');
         const btn  = document.querySelector(`button[onclick*="consultaSaldo('${uuid}')"]`);
         const cell = document.getElementById(`saldo-cell-${uuid}`);
 
-        // Estado de carga
+        // Contador de segundos mientras espera (la automatización tarda ~60-120s)
+        let secs = 0;
         if (btn)  { btn.disabled = true; btn.style.opacity = '0.4'; }
-        if (cell) { cell.innerHTML = '<span style="color:#9aa0b8;font-size:.8rem">Consultando…</span>'; }
+        if (cell) { cell.innerHTML = '<span style="color:#9aa0b8;font-size:.8rem">Consultando… 0s</span>'; }
+        const timer = setInterval(() => {
+            secs++;
+            if (cell) cell.innerHTML = `<span style="color:#9aa0b8;font-size:.8rem">Consultando… ${secs}s</span>`;
+        }, 1000);
 
         try {
             const fd = new FormData();
             fd.append('uuid', uuid);
-            const res  = await fetch('/gyrosfe/api/consulta_saldo.php', { method: 'POST', body: fd });
+            const ctrl = new AbortController();
+            const tout = setTimeout(() => ctrl.abort(), 185000);
+            const res  = await fetch('/gyrosfe/api/consulta_saldo.php', { method: 'POST', body: fd, signal: ctrl.signal });
+            clearTimeout(tout);
             const data = await res.json();
 
             if (data.ok) {
@@ -2443,6 +2451,7 @@ header('Content-Type: text/html; charset=utf-8');
             if (cell) { cell.innerHTML = '<span style="color:#f87171;font-size:.78rem">Error red</span>'; }
             alert('Error de red: ' + err.message);
         } finally {
+            clearInterval(timer);
             if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
         }
     }
