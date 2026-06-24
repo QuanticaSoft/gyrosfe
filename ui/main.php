@@ -63,6 +63,7 @@ SELECT
   cl.observaciones                         AS cl_observaciones,
   cl.fecharegistro                         AS cl_fecharegistro,
 
+  pp.id_pago                               AS pp_id_pago,
   pp.fecha_pago                            AS pp_fecha,
   pp.estado                                AS pp_estado,
 
@@ -91,7 +92,7 @@ LEFT JOIN LATERAL (
 ) hb ON true
 LEFT JOIN "Cliente" cl ON cl.dispositivo = uds.serial
 LEFT JOIN LATERAL (
-    SELECT pg.fecha_pago, pg.estado
+    SELECT pg.id_pago, pg.fecha_pago, pg.estado
     FROM "pago" pg
     JOIN "prestamo" pr ON pr."id_prestamo" = pg."prestamoIdPrestamo"
     WHERE pr."clienteIdCliente" = cl.uuid
@@ -1004,13 +1005,19 @@ header('Content-Type: text/html; charset=utf-8');
                 <td class="mono" style="white-space:nowrap"><?= $cuotaHtml ?></td>
 
                 <!-- Debitar -->
-                <td style="text-align:center">
-                <?php if ((int)($r['lp_cantidad'] ?? 0) > 0): ?>
-                    <input type="text" class="input-debitar" value="0.00"
-                           inputmode="decimal"
-                           style="width:90px;text-align:right;background:#1a1f35;border:1px solid #3a4060;border-radius:4px;color:#e0e4f0;font-family:monospace;font-size:.82rem;padding:3px 6px;"
-                           onfocus="if(this.value==='0.00')this.value=''"
-                           onblur="fmtDebitarInput(this)">
+                <?php $ppIdPago = $r['pp_id_pago'] ?? null; ?>
+                <td style="text-align:center" id="debitar-cell-<?= esc($clienteUuid) ?>">
+                <?php if ($ppIdPago !== null): ?>
+                    <div style="display:inline-flex;align-items:center;gap:4px">
+                        <input type="text" class="input-debitar" value="0.00"
+                               id="debitar-monto-<?= esc($clienteUuid) ?>"
+                               inputmode="decimal"
+                               style="width:80px;text-align:right;background:#1a1f35;border:1px solid #3a4060;border-radius:4px;color:#e0e4f0;font-family:monospace;font-size:.82rem;padding:3px 6px;"
+                               onfocus="if(this.value==='0.00')this.value=''"
+                               onblur="fmtDebitarInput(this)">
+                        <button class="btn-accion" title="Debitar (transferencia ACH)"
+                                onclick="debitarCliente('<?= esc($clienteUuid) ?>','<?= esc((string)$ppIdPago) ?>')">💶</button>
+                    </div>
                 <?php else: ?>
                     <span style="color:#555c7a">—</span>
                 <?php endif; ?>
@@ -2322,6 +2329,7 @@ header('Content-Type: text/html; charset=utf-8');
                 <td style="text-align:center">${dias}</td>
                 <td>${fmtMoney(c.saldo_inicial)} / Bs ${saldoFin}</td>
                 <td>${c.transferencia != null ? fmtMoney(c.transferencia) : '—'}</td>
+                <td class="mono">${c.nro_envio_transferencia ?? '—'}</td>
                 <td class="${estadoClass(c.estado)}">${estadoLabel(c.estado)}</td>
                 <td style="text-align:center">
                     <button class="btn-accion btn-reg-pago"
@@ -2340,7 +2348,7 @@ header('Content-Type: text/html; charset=utf-8');
             <td colspan="3" style="text-align:right;font-size:.68rem;font-weight:700;letter-spacing:.05em;color:#7b93ff;text-transform:uppercase;padding-right:10px">Totales:</td>
             <td style="text-align:center;color:#e0e4f0;font-weight:700">Bs ${totalInteres.toFixed(2)}</td>
             <td style="text-align:center;color:#e0e4f0;font-weight:700">Bs ${totalCapital.toFixed(2)}</td>
-            <td colspan="6"></td>
+            <td colspan="7"></td>
         </tr>`;
 
         return `<div class="pago-bloque">
@@ -2357,6 +2365,7 @@ header('Content-Type: text/html; charset=utf-8');
                         <th>DÍAS</th>
                         <th>INICIAL/FINAL</th>
                         <th>TRANSF.</th>
+                        <th>N° ENVÍO</th>
                         <th>ESTADO</th>
                         <th>ACCIONES</th>
                     </tr></thead>
@@ -2453,6 +2462,61 @@ header('Content-Type: text/html; charset=utf-8');
         } finally {
             clearInterval(timer);
             if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+        }
+    }
+
+    // ── Debitar (transferencia ACH a cuentaOficina) ──────────────
+    async function debitarCliente(uuid, idPago) {
+        const cell  = document.getElementById(`debitar-cell-${uuid}`);
+        const input = document.getElementById(`debitar-monto-${uuid}`);
+        const btn   = cell ? cell.querySelector('button') : null;
+        const monto = parseFloat((input?.value ?? '0').replace(',', '.'));
+
+        if (!monto || monto <= 0) {
+            alert('Ingresa un monto válido antes de debitar.');
+            return;
+        }
+        if (!confirm(`¿Confirmas debitar Bs. ${monto.toFixed(2)} a la cuenta oficina? Esta acción no se puede revertir.`)) {
+            return;
+        }
+
+        let secs = 0;
+        if (btn)   { btn.disabled = true; btn.style.opacity = '0.4'; }
+        if (input) { input.disabled = true; }
+        const original = cell ? cell.innerHTML : '';
+        if (cell) { cell.innerHTML = `<span style="color:#9aa0b8;font-size:.78rem">Debitando… 0s</span>`; }
+        const timer = setInterval(() => {
+            secs++;
+            if (cell) cell.innerHTML = `<span style="color:#9aa0b8;font-size:.78rem">Debitando… ${secs}s</span>`;
+        }, 1000);
+
+        try {
+            const fd = new FormData();
+            fd.append('id_pago', idPago);
+            fd.append('monto', monto.toFixed(2));
+            const ctrl = new AbortController();
+            const tout = setTimeout(() => ctrl.abort(), 300000);
+            const res  = await fetch('/gyrosfe/api/debitar.php', { method: 'POST', body: fd, signal: ctrl.signal });
+            clearTimeout(tout);
+            const data = await res.json();
+
+            if (data.ok) {
+                if (cell) {
+                    cell.innerHTML =
+                        `<span style="color:#34d399;font-weight:700">Bs. ${parseFloat(data.monto).toFixed(2)}</span>` +
+                        `<div class="small mono" style="color:#9aa0b8;margin-top:2px">N° ${data.numero_envio}</div>`;
+                }
+            } else {
+                if (cell) { cell.innerHTML = original; }
+                alert('Error al debitar: ' + (data.error ?? 'desconocido'));
+            }
+        } catch (err) {
+            if (cell) { cell.innerHTML = original; }
+            alert('Error de red: ' + err.message);
+        } finally {
+            clearInterval(timer);
+            if (btn)   { btn.disabled = false; btn.style.opacity = '1'; }
+            if (input) { input.disabled = false; }
         }
     }
 
