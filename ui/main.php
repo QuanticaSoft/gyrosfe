@@ -1501,15 +1501,44 @@ header('Content-Type: text/html; charset=utf-8');
     <div id="modal-nuevo-prest" class="modal-float" role="dialog" aria-modal="true">
         <div class="modal-float-box">
             <button class="mf-close" onclick="cerrarModalFloat('modal-nuevo-prest')">✕</button>
-            <h3>➕ Nuevo Préstamo</h3>
+            <h3>➕ Préstamo</h3>
+
+            <ul class="tab-nav" id="prest-modo-tabs" style="margin-bottom:16px">
+                <li class="active" data-modo="nuevo">NUEVO</li>
+                <li data-modo="migrar">MIGRAR EXISTENTE</li>
+            </ul>
+
             <label class="mf-label">Fecha de Préstamo *</label>
-            <input type="date" id="np-fecha" class="mf-input">
-            <label class="mf-label">Monto Prestado (Bs.) *</label>
-            <input type="number" id="np-monto" class="mf-input" min="0.01" step="0.01" placeholder="0.00" oninput="recalcCuota()">
-            <label class="mf-label">Tasa de Interés Mensual (%) *</label>
-            <input type="number" id="np-tasa" class="mf-input" min="0" step="0.01" placeholder="0.00" oninput="recalcCuota()">
-            <label class="mf-label">Meses *</label>
+            <input type="date" id="np-fecha" class="mf-input" required>
+
+            <div class="form-row col2">
+                <div>
+                    <label class="mf-label">Monto Prestado (Bs.) *</label>
+                    <input type="number" id="np-monto" class="mf-input" min="0.01" step="0.01" placeholder="0.00" required oninput="recalcCuota()">
+                </div>
+                <div>
+                    <label class="mf-label">Tasa de Interés Mensual (%) *</label>
+                    <input type="number" id="np-tasa" class="mf-input" min="0" step="0.01" placeholder="0.00" oninput="recalcCuota()">
+                </div>
+            </div>
+            <label class="mf-label">Meses (plazo total) *</label>
             <input type="number" id="np-meses" class="mf-input" min="1" step="1" placeholder="12" oninput="recalcCuota()">
+
+            <!-- Campos solo para modo MIGRAR EXISTENTE -->
+            <div id="prest-migrar-fields" style="display:none">
+                <div class="form-row col2">
+                    <div>
+                        <label class="mf-label">N° de Cuota Actual *</label>
+                        <input type="number" id="np-cuota-actual" class="mf-input" min="1" step="1" placeholder="Ej: 3">
+                    </div>
+                    <div>
+                        <label class="mf-label">Saldo Pendiente Actual (Bs.) *</label>
+                        <input type="number" id="np-saldo-pendiente" class="mf-input" min="0" step="0.01" placeholder="0.00">
+                    </div>
+                </div>
+                <div class="mf-note">El plan se generará solo desde la cuota actual en adelante; las cuotas anteriores no se registran.</div>
+            </div>
+
             <label class="mf-label">Cuota Mensual (Bs.) — calculado automáticamente</label>
             <input type="text" id="np-cuota" class="mf-input" readonly style="opacity:.6;cursor:not-allowed;">
             <div class="mf-note" id="np-totales"></div>
@@ -2116,31 +2145,64 @@ header('Content-Type: text/html; charset=utf-8');
     }
 
     // ── Abrir modal Nuevo Préstamo ────────────────────────────────────
+    // ── Modo del modal: 'nuevo' | 'migrar' ───────────────────────────
+    let _prestModo = 'nuevo';
+
+    function setPrestModo(modo) {
+        _prestModo = modo;
+        document.querySelectorAll('#prest-modo-tabs li').forEach(li => {
+            li.classList.toggle('active', li.dataset.modo === modo);
+        });
+        document.getElementById('prest-migrar-fields').style.display = (modo === 'migrar') ? '' : 'none';
+    }
+
+    document.getElementById('prest-modo-tabs').addEventListener('click', function(e) {
+        const li = e.target.closest('li[data-modo]');
+        if (!li) return;
+        setPrestModo(li.dataset.modo);
+    });
+
     function abrirNuevoPrestamo() {
         const hoy = new Date().toISOString().split('T')[0];
         document.getElementById('np-fecha').value = hoy;
         document.getElementById('np-monto').value = '';
         document.getElementById('np-tasa').value  = '';
         document.getElementById('np-meses').value = '';
+        document.getElementById('np-cuota-actual').value = '';
+        document.getElementById('np-saldo-pendiente').value = '';
         document.getElementById('np-cuota').value = '';
         document.getElementById('np-totales').textContent = '';
+        setPrestModo('nuevo');
         abrirModalFloat('modal-nuevo-prest');
     }
 
     async function crearPrestamo() {
-        const btn   = document.getElementById('btn-crear-prest');
-        const fecha = document.getElementById('np-fecha').value;
-        const monto = document.getElementById('np-monto').value;
-        const tasa  = document.getElementById('np-tasa').value;
-        const meses = document.getElementById('np-meses').value;
+        const btn    = document.getElementById('btn-crear-prest');
+        const fecha  = document.getElementById('np-fecha').value;
+        const monto  = document.getElementById('np-monto').value;
+        const tasa   = document.getElementById('np-tasa').value;
+        const meses  = document.getElementById('np-meses').value;
+        const cuotaActual    = document.getElementById('np-cuota-actual').value;
+        const saldoPendiente = document.getElementById('np-saldo-pendiente').value;
+
         if (!fecha || !monto || !meses) { alert('Completa todos los campos obligatorios'); return; }
+        if (_prestModo === 'migrar' && (!cuotaActual || saldoPendiente === '')) {
+            alert('Para migrar un préstamo existente, completa N° de Cuota Actual y Saldo Pendiente Actual');
+            return;
+        }
+
         btn.disabled = true; btn.textContent = 'Creando…';
         const fd = new FormData();
         fd.append('clienteUuid',    _regUuid);
+        fd.append('modo',           _prestModo);
         fd.append('fecha_prestamo', fecha);
         fd.append('monto_prestado', monto);
         fd.append('tasa_interes',   tasa || '0');
         fd.append('plazo_meses',    meses);
+        if (_prestModo === 'migrar') {
+            fd.append('numero_cuota_actual',    cuotaActual);
+            fd.append('saldo_pendiente_actual', saldoPendiente);
+        }
         try {
             const res  = await fetch('/gyrosfe/api/prestamo_crear.php', { method: 'POST', body: fd });
             const json = await res.json();
