@@ -17,9 +17,18 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     jsonErr('Método no permitido', 405);
 }
 
-$uuid = trim((string) ($_POST['uuid'] ?? ''));
+$uuid    = trim((string) ($_POST['uuid']    ?? ''));
+$idPago  = trim((string) ($_POST['id_pago'] ?? ''));
+$tipo    = trim((string) ($_POST['tipo']    ?? ''));
+
 if ($uuid === '') {
     jsonErr('UUID requerido');
+}
+if ($tipo !== '' && !in_array($tipo, ['antes', 'despues'], true)) {
+    jsonErr('tipo inválido (antes|despues)');
+}
+if ($tipo !== '' && $idPago === '') {
+    jsonErr('id_pago requerido cuando se especifica tipo');
 }
 
 require_once __DIR__ . '/../lib/db_connect.php';
@@ -94,11 +103,16 @@ try {
 
     // 5. Insertar en tabla saldo con fecha y hora exacta
     $stmtIns = $pdo->prepare('
-        INSERT INTO saldo (cliente_id, saldo, fecha_hora)
-        VALUES (:cid, :saldo, NOW())
+        INSERT INTO saldo (cliente_id, saldo, fecha_hora, "id_pago", "tipo")
+        VALUES (:cid, :saldo, NOW(), :idpago, :tipo)
         RETURNING fecha_hora
     ');
-    $stmtIns->execute([':cid' => $uuid, ':saldo' => $saldo]);
+    $stmtIns->execute([
+        ':cid'    => $uuid,
+        ':saldo'  => $saldo,
+        ':idpago' => $idPago !== '' ? $idPago : null,
+        ':tipo'   => $tipo   !== '' ? $tipo   : null,
+    ]);
     $row = $stmtIns->fetch(PDO::FETCH_ASSOC);
 
     echo json_encode([

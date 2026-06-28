@@ -65,13 +65,18 @@ SELECT
 
   pp.id_pago                               AS pp_id_pago,
   pp.fecha_pago                            AS pp_fecha,
-  pp.estado                                AS pp_estado,
+  pp.estado_calc                           AS pp_estado,
+  pp.mes                                   AS pp_mes,
+  pp.cuota_fija                            AS pp_cuota_fija,
+  pp.dia_prestamo                          AS pp_dia_prestamo,
 
   bc.usuario                               AS bc_usuario,
   bc.key                                   AS bc_key,
 
   sl.saldo                                 AS sl_saldo,
   sl.fecha_hora                            AS sl_fecha_hora,
+  sd.sld_antes                             AS sd_antes,
+  sd.sld_despues                           AS sd_despues,
 
   lp.lp_total                              AS lp_total,
   lp.lp_detalle                            AS lp_detalle,
@@ -92,7 +97,17 @@ LEFT JOIN LATERAL (
 ) hb ON true
 LEFT JOIN "Cliente" cl ON cl.dispositivo = uds.serial
 LEFT JOIN LATERAL (
-    SELECT pg.id_pago, pg.fecha_pago, pg.estado
+    SELECT
+        pg.id_pago,
+        pg.fecha_pago,
+        pg.mes,
+        pg.cuota_fija,
+        EXTRACT(DAY FROM pr.fecha_prestamo)::int AS dia_prestamo,
+        CASE
+            WHEN pg.estado = 'pagado'        THEN 'pagado'
+            WHEN pg.fecha_pago < CURRENT_DATE THEN 'vencido'
+            ELSE 'pendiente'
+        END AS estado_calc
     FROM "pago" pg
     JOIN "prestamo" pr ON pr."id_prestamo" = pg."prestamoIdPrestamo"
     WHERE pr."clienteIdCliente" = cl.uuid
@@ -116,6 +131,24 @@ LEFT JOIN LATERAL (
     ORDER BY s.fecha_hora DESC
     LIMIT 1
 ) sl ON true
+LEFT JOIN LATERAL (
+    -- Última cuota debitada (pagada) del cliente, para mostrar su par antes/después
+    SELECT pg.id_pago
+    FROM "pago" pg
+    JOIN "prestamo" pr ON pr."id_prestamo" = pg."prestamoIdPrestamo"
+    WHERE pr."clienteIdCliente" = cl.uuid
+      AND pg.estado = 'pagado'
+      AND pg."isActive" = true
+    ORDER BY pg."fecha_de_debito" DESC NULLS LAST, pg."updated_at" DESC
+    LIMIT 1
+) lastpaid ON true
+LEFT JOIN LATERAL (
+    SELECT
+        MAX(CASE WHEN s.tipo = 'antes'   THEN s.saldo END) AS sld_antes,
+        MAX(CASE WHEN s.tipo = 'despues' THEN s.saldo END) AS sld_despues
+    FROM saldo s
+    WHERE s.id_pago = lastpaid.id_pago
+) sd ON true
 LEFT JOIN LATERAL (
     SELECT
         SUM(pr.monto_prestado)::numeric                                              AS lp_total,
@@ -902,15 +935,16 @@ header('Content-Type: text/html; charset=utf-8');
                 ? (new DateTimeImmutable($r['cl_fecharegistro'], new DateTimeZone('UTC')))->format('Y-m-d H:i')
                 : '—';
 
-            // ── Periodo: próximo pago pendiente ────────────────────
-            $ppFecha  = $r['pp_fecha']  ?? null;
-            $ppEstado = $r['pp_estado'] ?? null;
+            // ── Periodo: día de préstamo . cuota actual / estado ───
+            $ppEstado      = $r['pp_estado']      ?? null;
+            $ppMes         = $r['pp_mes']         ?? null;
+            $ppDiaPrestamo = $r['pp_dia_prestamo'] ?? null;
             $periodoHtml = '<span style="color:#555c7a">—</span>';
-            if ($ppFecha !== null && $ppEstado !== null) {
-                $dtPP       = new DateTimeImmutable($ppFecha, new DateTimeZone('UTC'));
-                $mesAno     = $dtPP->format('m.y');
+            if ($ppEstado !== null && $ppMes !== null && $ppDiaPrestamo !== null) {
+                $dia        = str_pad((string) $ppDiaPrestamo, 2, '0', STR_PAD_LEFT);
+                $cuotaNum   = str_pad((string) $ppMes, 2, '0', STR_PAD_LEFT);
                 $estadoSlug = strtolower((string) $ppEstado);
-                $periodoHtml = esc($mesAno) . ' / <span class="estado-' . esc($estadoSlug) . '">' . esc((string) $ppEstado) . '</span>';
+                $periodoHtml = esc("$dia.$cuotaNum") . ' / <span class="estado-' . esc($estadoSlug) . '">' . esc((string) $ppEstado) . '</span>';
             }
         ?>
             <tr data-sector="<?= $clSector ?>" data-activo="<?= $clActivoVal ?>" data-uuid="<?= $clienteUuid ?>">
@@ -941,12 +975,19 @@ header('Content-Type: text/html; charset=utf-8');
                 <?php
                     $slSaldo     = $r['sl_saldo']     ?? null;
                     $slFechaHora = $r['sl_fecha_hora'] ?? null;
+                    $sdAntes     = $r['sd_antes']      ?? null;
+                    $sdDespues   = $r['sd_despues']    ?? null;
                     if ($slSaldo !== null) {
                         $saldoHtml = '<span style="color:#34d399;font-weight:700">Bs. ' . number_format((float) $slSaldo, 2) . '</span>';
                         if ($slFechaHora !== null) {
                             $dtSl = (new DateTimeImmutable($slFechaHora, new DateTimeZone('UTC')))
                                 ->setTimezone(new DateTimeZone('America/La_Paz'));
                             $saldoHtml .= '<div class="small" style="color:#9aa0b8;margin-top:2px">' . esc($dtSl->format('d/m/y H:i')) . '</div>';
+                        }
+                        if ($sdAntes !== null && $sdDespues !== null) {
+                            $saldoHtml .= '<div class="small mono" style="color:#7b93ff;margin-top:2px">'
+                                . number_format((float) $sdAntes, 2) . ' → ' . number_format((float) $sdDespues, 2)
+                                . '</div>';
                         }
                     } else {
                         $saldoHtml = '<span style="color:#555c7a">—</span>';
@@ -1005,19 +1046,22 @@ header('Content-Type: text/html; charset=utf-8');
                 <td class="mono" style="white-space:nowrap"><?= $cuotaHtml ?></td>
 
                 <!-- Debitar -->
-                <?php $ppIdPago = $r['pp_id_pago'] ?? null; ?>
+                <?php
+                    $ppIdPago    = $r['pp_id_pago']     ?? null;
+                    $ppCuotaFija = $r['pp_cuota_fija']  ?? null;
+                ?>
                 <td style="text-align:center" id="debitar-cell-<?= esc($clienteUuid) ?>">
                 <?php if ($ppIdPago !== null): ?>
-                    <div style="display:inline-flex;align-items:center;gap:4px">
-                        <input type="text" class="input-debitar" value="0.00"
-                               id="debitar-monto-<?= esc($clienteUuid) ?>"
-                               inputmode="decimal"
-                               style="width:80px;text-align:right;background:#1a1f35;border:1px solid #3a4060;border-radius:4px;color:#e0e4f0;font-family:monospace;font-size:.82rem;padding:3px 6px;"
-                               onfocus="if(this.value==='0.00')this.value=''"
-                               onblur="fmtDebitarInput(this)">
+                    <div style="display:inline-flex;align-items:center;gap:6px">
+                        <span class="mono" style="color:#e0e4f0;font-size:.82rem"
+                              id="debitar-monto-<?= esc($clienteUuid) ?>"
+                              data-monto="<?= esc(number_format((float) $ppCuotaFija, 2, '.', '')) ?>"
+                        >Bs. <?= number_format((float) $ppCuotaFija, 2) ?></span>
                         <button class="btn-accion" title="Debitar (transferencia ACH)"
                                 onclick="debitarCliente('<?= esc($clienteUuid) ?>','<?= esc((string)$ppIdPago) ?>')">💶</button>
                     </div>
+                <?php elseif ($lpCantidad > 0): ?>
+                    <span class="mono" style="color:#9aa0b8">Bs. 0.00</span>
                 <?php else: ?>
                     <span style="color:#555c7a">—</span>
                 <?php endif; ?>
@@ -1994,10 +2038,6 @@ header('Content-Type: text/html; charset=utf-8');
         if (v === null || v === undefined || v === '') return '—';
         return 'Bs ' + parseFloat(v).toFixed(2);
     }
-    function fmtDebitarInput(el) {
-        const v = parseFloat(el.value.replace(',', '.'));
-        el.value = isNaN(v) ? '0.00' : v.toFixed(2);
-    }
     function fmtDate(d) {
         if (!d) return '—';
         // d puede ser "YYYY-MM-DD" o ISO
@@ -2528,31 +2568,53 @@ header('Content-Type: text/html; charset=utf-8');
     }
 
     // ── Debitar (transferencia ACH a cuentaOficina) ──────────────
+    async function consultaSaldoLigada(uuid, idPago, tipo) {
+        const fd = new FormData();
+        fd.append('uuid', uuid);
+        fd.append('id_pago', idPago);
+        fd.append('tipo', tipo);
+        const ctrl = new AbortController();
+        const tout = setTimeout(() => ctrl.abort(), 185000);
+        const res  = await fetch('/gyrosfe/api/consulta_saldo.php', { method: 'POST', body: fd, signal: ctrl.signal });
+        clearTimeout(tout);
+        return res.json();
+    }
+
     async function debitarCliente(uuid, idPago) {
-        const cell  = document.getElementById(`debitar-cell-${uuid}`);
-        const input = document.getElementById(`debitar-monto-${uuid}`);
-        const btn   = cell ? cell.querySelector('button') : null;
-        const monto = parseFloat((input?.value ?? '0').replace(',', '.'));
+        const cell      = document.getElementById(`debitar-cell-${uuid}`);
+        const saldoCell = document.getElementById(`saldo-cell-${uuid}`);
+        const montoSpan = document.getElementById(`debitar-monto-${uuid}`);
+        const btn       = cell ? cell.querySelector('button') : null;
+        const monto     = parseFloat(montoSpan?.dataset.monto ?? '0');
 
         if (!monto || monto <= 0) {
-            alert('Ingresa un monto válido antes de debitar.');
+            alert('No hay un monto de cuota válido para debitar.');
             return;
         }
-        if (!confirm(`¿Confirmas debitar Bs. ${monto.toFixed(2)} a la cuenta oficina? Esta acción no se puede revertir.`)) {
+        if (!confirm(`¿Confirmas debitar Bs. ${monto.toFixed(2)} a la cuenta oficina? Se consultará el saldo antes y después. Esta acción no se puede revertir.`)) {
             return;
         }
 
         let secs = 0;
-        if (btn)   { btn.disabled = true; btn.style.opacity = '0.4'; }
-        if (input) { input.disabled = true; }
-        const original = cell ? cell.innerHTML : '';
-        if (cell) { cell.innerHTML = `<span style="color:#9aa0b8;font-size:.78rem">Debitando… 0s</span>`; }
-        const timer = setInterval(() => {
-            secs++;
-            if (cell) cell.innerHTML = `<span style="color:#9aa0b8;font-size:.78rem">Debitando… ${secs}s</span>`;
-        }, 1000);
+        let fase = 'Consultando saldo (antes)';
+        if (btn) { btn.disabled = true; btn.style.opacity = '0.4'; }
+        const originalDebitar = cell      ? cell.innerHTML      : '';
+        const originalSaldo   = saldoCell ? saldoCell.innerHTML : '';
+        const renderProgreso = () => {
+            const html = `<span style="color:#9aa0b8;font-size:.78rem">${fase}… ${secs}s</span>`;
+            if (cell)      cell.innerHTML      = html;
+            if (saldoCell) saldoCell.innerHTML = html;
+        };
+        renderProgreso();
+        const timer = setInterval(() => { secs++; renderProgreso(); }, 1000);
 
         try {
+            // 1) Saldo ANTES del débito
+            const antes = await consultaSaldoLigada(uuid, idPago, 'antes');
+            if (!antes.ok) throw new Error('Saldo (antes): ' + (antes.error ?? 'desconocido'));
+
+            // 2) Débito ACH
+            fase = 'Debitando';
             const fd = new FormData();
             fd.append('id_pago', idPago);
             fd.append('monto', monto.toFixed(2));
@@ -2561,24 +2623,37 @@ header('Content-Type: text/html; charset=utf-8');
             const res  = await fetch('/gyrosfe/api/debitar.php', { method: 'POST', body: fd, signal: ctrl.signal });
             clearTimeout(tout);
             const data = await res.json();
+            if (!data.ok) throw new Error('Débito: ' + (data.error ?? 'desconocido'));
 
-            if (data.ok) {
-                if (cell) {
-                    cell.innerHTML =
-                        `<span style="color:#34d399;font-weight:700">Bs. ${parseFloat(data.monto).toFixed(2)}</span>` +
-                        `<div class="small mono" style="color:#9aa0b8;margin-top:2px">N° ${data.numero_envio}</div>`;
-                }
-            } else {
-                if (cell) { cell.innerHTML = original; }
-                alert('Error al debitar: ' + (data.error ?? 'desconocido'));
+            // 3) Saldo DESPUÉS del débito
+            fase = 'Consultando saldo (después)';
+            const despues = await consultaSaldoLigada(uuid, idPago, 'despues');
+            if (!despues.ok) throw new Error('Saldo (después): ' + (despues.error ?? 'desconocido'));
+
+            if (cell) {
+                cell.innerHTML =
+                    `<span style="color:#34d399;font-weight:700">Bs. ${parseFloat(data.monto).toFixed(2)}</span>` +
+                    `<div class="small mono" style="color:#9aa0b8;margin-top:2px">N° ${data.numero_envio}</div>`;
+            }
+            if (saldoCell) {
+                const fechaFmt = despues.fecha_hora
+                    ? new Date(despues.fecha_hora).toLocaleString('es-BO', {
+                        day: '2-digit', month: '2-digit', year: '2-digit',
+                        hour: '2-digit', minute: '2-digit'
+                    })
+                    : '—';
+                saldoCell.innerHTML =
+                    `<span style="color:#34d399;font-weight:700">Bs. ${parseFloat(despues.saldo).toFixed(2)}</span>` +
+                    `<div class="small" style="color:#9aa0b8;margin-top:2px">${fechaFmt}</div>` +
+                    `<div class="small mono" style="color:#7b93ff;margin-top:2px">${parseFloat(antes.saldo).toFixed(2)} → ${parseFloat(despues.saldo).toFixed(2)}</div>`;
             }
         } catch (err) {
-            if (cell) { cell.innerHTML = original; }
-            alert('Error de red: ' + err.message);
+            if (cell)      cell.innerHTML      = originalDebitar;
+            if (saldoCell) saldoCell.innerHTML = originalSaldo;
+            alert('Error al debitar: ' + err.message);
         } finally {
             clearInterval(timer);
-            if (btn)   { btn.disabled = false; btn.style.opacity = '1'; }
-            if (input) { input.disabled = false; }
+            if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
         }
     }
 
