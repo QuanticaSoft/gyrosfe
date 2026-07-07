@@ -664,6 +664,15 @@ header('Content-Type: text/html; charset=utf-8');
         .estado-parcial  { color: #60a5fa; font-weight: 700; }
         .estado-default  { color: #9aa0b8; }
 
+        /* ── Valores Programado / Real en tabla de pagos ───────── */
+        .val-prog { font-size: .72rem; color: #555c7a; }
+        .val-real { font-size: .80rem; color: #7b93ff; font-weight: 600; }
+        .val-real.late { color: #f87171; }
+        .pago-table th .th-pr {
+            font-size: .58rem; color: #555c7a;
+            font-weight: 400; letter-spacing: .02em;
+        }
+
         /* ── Tab Banco ───────────────────────────────────────────── */
         .banco-grid {
             display: grid;
@@ -2401,34 +2410,45 @@ header('Content-Type: text/html; charset=utf-8');
             return `<div class="pago-bloque">${header}<p style="color:#555c7a;padding:10px">Sin cuotas generadas.</p></div>`;
         }
 
-        // Calcular DIAS entre pagos
-        const filas = cuotas.map((c, i) => {
-            let dias = '—';
-            if (i === 0) {
-                // Días desde fecha_prestamo hasta fecha_pago del mes 1
-                if (p.fecha_prestamo && c.fecha_pago) {
-                    const d0 = new Date(p.fecha_prestamo);
-                    const d1 = new Date(c.fecha_pago);
-                    dias = Math.round((d1 - d0) / 86400000);
-                }
-            } else {
-                const prev = cuotas[i - 1];
-                if (prev.fecha_pago && c.fecha_pago) {
-                    const d0 = new Date(prev.fecha_pago);
-                    const d1 = new Date(c.fecha_pago);
-                    dias = Math.round((d1 - d0) / 86400000);
-                }
-            }
-            const saldoFin = parseFloat(c.saldo_deudor ?? 0).toFixed(2);
-            const fechaVal = c.fecha_pago ? c.fecha_pago.substring(0, 10) : '';
+        const filas = cuotas.map((c) => {
+            const diasProg = c.dias_programado != null ? parseInt(c.dias_programado) : 30;
+            const diasReal = c.dias_real       != null ? parseInt(c.dias_real)       : null;
+            const isLate   = diasReal !== null && diasReal > diasProg;
+
+            // DÍAS: programado arriba (gris), real abajo (coloreado si existe)
+            const diasHtml = diasReal !== null
+                ? `<span class="val-prog">${diasProg}d</span><br><span class="val-real${isLate ? ' late' : ''}">${diasReal}d</span>`
+                : `${diasProg}d`;
+
+            // INTERÉS, CAPITAL, SALDO: si hay valor real, poner prog en gris + real coloreado
+            const hasReal = c.interes_real != null;
+            const interesHtml = hasReal
+                ? `<span class="val-prog">${fmtMoney(c.monto_a_interes)}</span><br><span class="val-real${isLate ? ' late' : ''}">${fmtMoney(c.interes_real)}</span>`
+                : fmtMoney(c.monto_a_interes);
+            const capitalHtml = hasReal
+                ? `<span class="val-prog">${fmtMoney(c.monto_a_devolucion_kapital)}</span><br><span class="val-real${isLate ? ' late' : ''}">${fmtMoney(c.capital_real)}</span>`
+                : fmtMoney(c.monto_a_devolucion_kapital);
+            const saldoHtml = hasReal
+                ? `<span class="val-prog">${fmtMoney(c.saldo_deudor)}</span><br><span class="val-real${isLate ? ' late' : ''}">${fmtMoney(c.saldo_deudor_real)}</span>`
+                : fmtMoney(c.saldo_deudor);
+
+            const saldoFin   = parseFloat(c.saldo_deudor ?? 0).toFixed(2);
+            const fechaVal   = c.fecha_pago      ? c.fecha_pago.substring(0, 10)      : '';
+            const fechaDebito = c.fecha_de_debito ? c.fecha_de_debito.substring(0, 10) : null;
+            const fechaDebitoHtml = fechaDebito
+                ? `<br><span class="val-real${isLate ? ' late' : ''}">${fmtDate(fechaDebito)}</span>`
+                : '';
             return `<tr data-id-pago="${c.id_pago}">
                 <td>${c.mes}</td>
-                <td><input type="date" class="pago-fecha-input" data-id="${c.id_pago}" value="${fechaVal}"></td>
+                <td>
+                    <input type="date" class="pago-fecha-input" data-id="${c.id_pago}" value="${fechaVal}">
+                    ${fechaDebitoHtml}
+                </td>
                 <td>${fmtMoney(c.cuota_fija)}</td>
-                <td>${fmtMoney(c.monto_a_interes)}</td>
-                <td>${fmtMoney(c.monto_a_devolucion_kapital)}</td>
-                <td>${fmtMoney(c.saldo_deudor)}</td>
-                <td style="text-align:center">${dias}</td>
+                <td>${interesHtml}</td>
+                <td>${capitalHtml}</td>
+                <td>${saldoHtml}</td>
+                <td style="text-align:center">${diasHtml}</td>
                 <td>${fmtMoney(c.saldo_inicial)} / Bs ${saldoFin}</td>
                 <td>${c.transferencia != null ? fmtMoney(c.transferencia) : '—'}</td>
                 <td class="mono">${c.nro_envio_transferencia ?? '—'}</td>
@@ -2443,13 +2463,22 @@ header('Content-Type: text/html; charset=utf-8');
             </tr>`;
         }).join('');
 
-        const totalInteres = cuotas.reduce((s, c) => s + parseFloat(c.monto_a_interes || 0), 0);
-        const totalCapital = cuotas.reduce((s, c) => s + parseFloat(c.monto_a_devolucion_kapital || 0), 0);
+        const totalInteres     = cuotas.reduce((s, c) => s + parseFloat(c.monto_a_interes             || 0), 0);
+        const totalCapital     = cuotas.reduce((s, c) => s + parseFloat(c.monto_a_devolucion_kapital  || 0), 0);
+        const totalInteresReal = cuotas.reduce((s, c) => s + parseFloat(c.interes_real                || 0), 0);
+        const totalCapitalReal = cuotas.reduce((s, c) => s + parseFloat(c.capital_real                || 0), 0);
+        const anyReal          = cuotas.some(c => c.interes_real != null);
 
         const filaTotalesPago = `<tr style="border-top:2px solid #2a2f45">
             <td colspan="3" style="text-align:right;font-size:.68rem;font-weight:700;letter-spacing:.05em;color:#7b93ff;text-transform:uppercase;padding-right:10px">Totales:</td>
-            <td style="text-align:center;color:#e0e4f0;font-weight:700">Bs ${totalInteres.toFixed(2)}</td>
-            <td style="text-align:center;color:#e0e4f0;font-weight:700">Bs ${totalCapital.toFixed(2)}</td>
+            <td style="text-align:center">
+                <span class="${anyReal ? 'val-prog' : ''}" style="font-weight:700;color:#e0e4f0">Bs ${totalInteres.toFixed(2)}</span>
+                ${anyReal ? `<br><span class="val-real">Bs ${totalInteresReal.toFixed(2)}</span>` : ''}
+            </td>
+            <td style="text-align:center">
+                <span class="${anyReal ? 'val-prog' : ''}" style="font-weight:700;color:#e0e4f0">Bs ${totalCapital.toFixed(2)}</span>
+                ${anyReal ? `<br><span class="val-real">Bs ${totalCapitalReal.toFixed(2)}</span>` : ''}
+            </td>
             <td colspan="7"></td>
         </tr>`;
 
@@ -2459,12 +2488,12 @@ header('Content-Type: text/html; charset=utf-8');
                 <table class="pago-table">
                     <thead><tr>
                         <th>MES</th>
-                        <th>FECHA PAGO</th>
+                        <th>FECHA PAGO <span class="th-pr">P/R</span></th>
                         <th>CUOTA FIJA</th>
-                        <th>INTERÉS</th>
-                        <th>CAPITAL</th>
-                        <th>SALDO</th>
-                        <th>DÍAS</th>
+                        <th>INTERÉS <span class="th-pr">P/R</span></th>
+                        <th>CAPITAL <span class="th-pr">P/R</span></th>
+                        <th>SALDO <span class="th-pr">P/R</span></th>
+                        <th>DÍAS <span class="th-pr">P/R</span></th>
                         <th>INICIAL/FINAL</th>
                         <th>TRANSF.</th>
                         <th>N° ENVÍO</th>

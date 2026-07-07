@@ -98,6 +98,7 @@ function generarAmortizacion(float $monto, float $tasa, int $plazo, int $mesInic
             'monto_a_interes'            => round($interes, 2),
             'monto_a_devolucion_kapital' => round($capital, 2),
             'saldo_deudor'               => round($saldoFinal, 2),
+            'dias_programado'            => 30,
         ];
     }
     return $filas;
@@ -154,26 +155,27 @@ try {
         'INSERT INTO "pago"
             ("prestamoIdPrestamo","userId","mes","cuota_fija","saldo_inicial",
              "monto_a_interes","monto_a_devolucion_kapital","saldo_deudor",
-             "fecha_pago","estado","isActive")
+             "fecha_pago","estado","isActive","dias_programado")
          VALUES
             (:pid, :uid, :mes, :cuota, :sinicial,
              :interes, :capital, :saldo,
-             :fpago, \'pendiente\', TRUE)'
+             :fpago, \'pendiente\', TRUE, :diasp)'
     );
 
     foreach ($amortAInsertar as $fila) {
         // fecha de pago = fecha_prestamo + N meses (mismo cronograma original)
         $fpago = $fechaPrestamo->modify("+{$fila['mes']} months")->format('Y-m-d');
         $stmtCuota->execute([
-            ':pid'     => $prestamoId,
-            ':uid'     => $userId ?: null,
-            ':mes'     => $fila['mes'],
-            ':cuota'   => $fila['cuota_fija'],
-            ':sinicial'=> $fila['saldo_inicial'],
-            ':interes' => $fila['monto_a_interes'],
-            ':capital' => $fila['monto_a_devolucion_kapital'],
-            ':saldo'   => $fila['saldo_deudor'],
-            ':fpago'   => $fpago,
+            ':pid'      => $prestamoId,
+            ':uid'      => $userId ?: null,
+            ':mes'      => $fila['mes'],
+            ':cuota'    => $fila['cuota_fija'],
+            ':sinicial' => $fila['saldo_inicial'],
+            ':interes'  => $fila['monto_a_interes'],
+            ':capital'  => $fila['monto_a_devolucion_kapital'],
+            ':saldo'    => $fila['saldo_deudor'],
+            ':fpago'    => $fpago,
+            ':diasp'    => $fila['dias_programado'],
         ]);
     }
 

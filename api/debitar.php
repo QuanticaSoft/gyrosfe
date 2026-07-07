@@ -39,7 +39,10 @@ try {
     // 1. Obtener la cuota, su prestamo y el cliente duenio
     $stmtPago = $pdo->prepare('
         SELECT pg."id_pago", pg."fecha_pago", pg."nro_envio_transferencia",
-               pr."clienteIdCliente" AS uuid
+               pg."mes", pg."saldo_inicial", pg."cuota_fija",
+               pg."prestamoIdPrestamo",
+               pr."clienteIdCliente" AS uuid,
+               pr."tasa_interes", pr."fecha_prestamo"
         FROM "pago" pg
         JOIN "prestamo" pr ON pr."id_prestamo" = pg."prestamoIdPrestamo"
         WHERE pg."id_pago" = :id
@@ -116,20 +119,58 @@ try {
 
     $numeroEnvio = (string) ($agentData['numero_envio'] ?? '');
 
-    // 5. Registrar el debito en la cuota
+    // 5. Calcular dias_real y valores reales de amortización
+    $today = new DateTimeImmutable('today');
+
+    if ((int) $pago['mes'] === 1) {
+        $refDate = new DateTimeImmutable($pago['fecha_prestamo']);
+    } else {
+        // Fecha de referencia = fecha_de_debito de la cuota anterior
+        $stmtPrev = $pdo->prepare('
+            SELECT "fecha_de_debito" FROM "pago"
+            WHERE "prestamoIdPrestamo" = :pid AND mes = :prevmes
+            LIMIT 1
+        ');
+        $stmtPrev->execute([
+            ':pid'     => $pago['prestamoidprestamo'],
+            ':prevmes' => (int) $pago['mes'] - 1,
+        ]);
+        $prev    = $stmtPrev->fetch(PDO::FETCH_ASSOC);
+        $refDate = new DateTimeImmutable(
+            (!empty($prev['fecha_de_debito'])) ? $prev['fecha_de_debito'] : $pago['fecha_prestamo']
+        );
+    }
+
+    $diasReal    = (int) $today->diff($refDate)->days;
+    $tasaDiaria  = (float) $pago['tasa_interes'] / 100.0 / 30.0;
+    $saldoIni    = (float) $pago['saldo_inicial'];
+    $cuotaFija   = (float) $pago['cuota_fija'];
+    $interesReal = round($saldoIni * $tasaDiaria * $diasReal, 2);
+    $capitalReal = round(max(0.0, $cuotaFija - $interesReal), 2);
+    $saldoReal   = round(max(0.0, $saldoIni - $capitalReal), 2);
+
+    // 6. Registrar el débito con valores reales en la cuota
     $stmtUpd = $pdo->prepare('
         UPDATE "pago"
         SET "nro_envio_transferencia" = :nro,
             "transferencia"           = :monto,
             "estado"                  = \'pagado\',
             "fecha_de_debito"         = CURRENT_DATE,
+            "dias_real"               = :diasreal,
+            "interes_real"            = :interesreal,
+            "capital_real"            = :capitalreal,
+            "saldo_deudor_real"       = :saldoreal,
             "updated_at"              = NOW()
         WHERE "id_pago" = :id
     ');
     $stmtUpd->execute([
-        ':nro'   => $numeroEnvio,
-        ':monto' => $monto,
-        ':id'    => $idPago,
+        ':nro'         => $numeroEnvio,
+        ':monto'       => $monto,
+        ':id'          => $idPago,
+        ':diasreal'    => $diasReal,
+        ':interesreal' => $interesReal,
+        ':capitalreal' => $capitalReal,
+        ':saldoreal'   => $saldoReal,
     ]);
 
     echo json_encode([

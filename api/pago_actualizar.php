@@ -39,30 +39,83 @@ try {
     $params = [':id' => $idPago];
 
     if ($fechaPago !== '') {
-        $sets[]                = '"fecha_pago" = :fpago';
-        $params[':fpago']      = $fechaPago;
+        $sets[]           = '"fecha_pago" = :fpago';
+        $params[':fpago'] = $fechaPago;
     }
     if ($estado !== '') {
-        $sets[]                = '"estado" = :estado';
-        $params[':estado']     = $estado;
+        $sets[]            = '"estado" = :estado';
+        $params[':estado'] = $estado;
     }
     if ($montoPago !== null) {
-        $sets[]                = '"monto_pago" = :mpago';
-        $params[':mpago']      = $montoPago;
+        $sets[]            = '"monto_pago" = :mpago';
+        $params[':mpago']  = $montoPago;
     }
     if ($metodo !== '') {
-        $sets[]                = '"metodo_pago" = :metodo';
-        $params[':metodo']     = $metodo;
+        $sets[]             = '"metodo_pago" = :metodo';
+        $params[':metodo']  = $metodo;
     }
     if ($transferencia !== null) {
-        $sets[]                = '"transferencia" = :transf';
-        $params[':transf']     = $transferencia;
+        $sets[]            = '"transferencia" = :transf';
+        $params[':transf'] = $transferencia;
     }
+
     if ($estado === 'pagado' || $estado === 'parcial') {
-        $sets[]                = '"fecha_de_debito" = CURRENT_DATE';
+        $sets[] = '"fecha_de_debito" = CURRENT_DATE';
         if ($userId > 0) {
-            $sets[]            = '"userId" = :uid';
-            $params[':uid']    = $userId;
+            $sets[]          = '"userId" = :uid';
+            $params[':uid']  = $userId;
+        }
+
+        // Calcular dias_real y valores reales de amortización
+        $stmtInfo = $pdo->prepare('
+            SELECT pg."mes", pg."saldo_inicial", pg."cuota_fija",
+                   pg."prestamoIdPrestamo",
+                   pr."tasa_interes", pr."fecha_prestamo"
+            FROM "pago" pg
+            JOIN "prestamo" pr ON pr."id_prestamo" = pg."prestamoIdPrestamo"
+            WHERE pg."id_pago" = :id
+            LIMIT 1
+        ');
+        $stmtInfo->execute([':id' => $idPago]);
+        $info = $stmtInfo->fetch(PDO::FETCH_ASSOC);
+
+        if ($info) {
+            $today = new DateTimeImmutable('today');
+
+            if ((int) $info['mes'] === 1) {
+                $refDate = new DateTimeImmutable($info['fecha_prestamo']);
+            } else {
+                $stmtPrev = $pdo->prepare('
+                    SELECT "fecha_de_debito" FROM "pago"
+                    WHERE "prestamoIdPrestamo" = :pid AND mes = :prevmes
+                    LIMIT 1
+                ');
+                $stmtPrev->execute([
+                    ':pid'     => $info['prestamoidprestamo'],
+                    ':prevmes' => (int) $info['mes'] - 1,
+                ]);
+                $prev    = $stmtPrev->fetch(PDO::FETCH_ASSOC);
+                $refDate = new DateTimeImmutable(
+                    (!empty($prev['fecha_de_debito'])) ? $prev['fecha_de_debito'] : $info['fecha_prestamo']
+                );
+            }
+
+            $diasReal    = (int) $today->diff($refDate)->days;
+            $tasaDiaria  = (float) $info['tasa_interes'] / 100.0 / 30.0;
+            $saldoIni    = (float) $info['saldo_inicial'];
+            $cuotaFija   = (float) $info['cuota_fija'];
+            $interesReal = round($saldoIni * $tasaDiaria * $diasReal, 2);
+            $capitalReal = round(max(0.0, $cuotaFija - $interesReal), 2);
+            $saldoReal   = round(max(0.0, $saldoIni - $capitalReal), 2);
+
+            $sets[]                    = '"dias_real"         = :diasreal';
+            $sets[]                    = '"interes_real"      = :interesreal';
+            $sets[]                    = '"capital_real"      = :capitalreal';
+            $sets[]                    = '"saldo_deudor_real" = :saldoreal';
+            $params[':diasreal']       = $diasReal;
+            $params[':interesreal']    = $interesReal;
+            $params[':capitalreal']    = $capitalReal;
+            $params[':saldoreal']      = $saldoReal;
         }
     }
 
