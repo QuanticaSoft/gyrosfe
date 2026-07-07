@@ -411,10 +411,10 @@ header('Content-Type: text/html; charset=utf-8');
 
         /* ── Modal 📲 Registro Cliente (tabbed) ────────────────── */
         #modal-registro .modal-box {
-            width: 1020px;
-            max-width: 97vw;
-            height: 680px;
-            max-height: 94vh;
+            width: 1420px;
+            max-width: 99vw;
+            height: 720px;
+            max-height: 96vh;
             display: flex;
             flex-direction: column;
             padding: 0;
@@ -2394,6 +2394,14 @@ header('Content-Type: text/html; charset=utf-8');
                     vencido: 'Vencido', parcial: 'Parcial' };
         return m[estado] ?? estado;
     }
+    // Calcula el estado visual: si el pago no está cerrado y fecha_pago < hoy → vencido
+    function calcEstado(c) {
+        if (c.estado === 'pagado' || c.estado === 'parcial') return c.estado;
+        const hoy      = new Date().toISOString().split('T')[0];
+        const fechaPago = c.fecha_pago ? c.fecha_pago.substring(0, 10) : null;
+        if (fechaPago && fechaPago < hoy) return 'vencido';
+        return c.estado;
+    }
 
     function renderPagosBloque(item, num) {
         const p = item.prestamo;
@@ -2452,12 +2460,12 @@ header('Content-Type: text/html; charset=utf-8');
                 <td>${fmtMoney(c.saldo_inicial)} / Bs ${saldoFin}</td>
                 <td>${c.transferencia != null ? fmtMoney(c.transferencia) : '—'}</td>
                 <td class="mono">${c.nro_envio_transferencia ?? '—'}</td>
-                <td class="${estadoClass(c.estado)}">${estadoLabel(c.estado)}</td>
+                <td class="${estadoClass(calcEstado(c))}">${estadoLabel(calcEstado(c))}</td>
                 <td style="text-align:center">
                     <button class="btn-accion btn-reg-pago"
                         data-id="${c.id_pago}"
                         data-fecha="${c.fecha_pago ?? ''}"
-                        data-estado="${c.estado}"
+                        data-estado="${calcEstado(c)}"
                         title="Registrar pago">💸</button>
                 </td>
             </tr>`;
