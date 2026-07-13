@@ -2,7 +2,7 @@
 
 ## Descripción del Proyecto
 
-**GyrosFE** es el frontend/backend de gestión de clientes para **Quantica Soft**. Aplicación web PHP que gestiona la asignación de dispositivos USB (módems) a clientes, con monitoreo en tiempo real de agentes remotos.
+**GyrosFE** es el frontend/backend de gestión de clientes para **Quantica Soft**. Aplicación web PHP que gestiona la asignación de dispositivos USB (módems) a clientes, con monitoreo en tiempo real de agentes remotos, y un módulo financiero de préstamos, cuotas, cuentas bancarias y débitos automáticos vía agente externo.
 
 ## Tecnologías
 
@@ -27,8 +27,21 @@ gyrosfe/
 │   ├── dashboard.php      # Vista principal (redirige a main.php)
 │   └── main.php           # Dashboard con tabla de dispositivos y modales
 ├── api/
-│   ├── cliente_registrar.php   # POST: registrar nuevo cliente + dispositivo
-│   └── cliente_editar.php      # POST: editar cliente existente
+│   ├── cliente_registrar.php          # POST: registrar nuevo cliente + dispositivo
+│   ├── cliente_editar.php             # POST: editar cliente existente
+│   ├── cliente_toggle_activo.php      # POST: activar/desactivar cliente
+│   ├── banco_guardar.php              # POST: guardar hasta 2 cuentas bancarias de un cliente
+│   ├── banco_listar.php               # GET:  listar cuentas bancarias de un cliente
+│   ├── prestamo_crear.php             # POST: crear préstamo (nuevo o migrado) + genera cuotas
+│   ├── prestamo_editar.php            # POST: editar préstamo, regenera cuotas pendientes
+│   ├── prestamo_eliminar.php          # POST: eliminar préstamo (solo si se creó hoy)
+│   ├── prestamos_listar.php           # GET:  listar préstamos de un cliente
+│   ├── pagos_listar.php               # GET:  listar préstamos + cuotas anidadas de un cliente
+│   ├── pago_actualizar.php            # POST: actualizar estado/fecha/monto de una cuota
+│   ├── pago_fecha.php                 # POST: cambiar fecha de una cuota, recalcula en cascada
+│   ├── consulta_saldo.php             # POST: consulta saldo bancario vía agente externo
+│   ├── debitar.php                    # POST: ejecuta débito ACH vía agente externo
+│   └── migration_pago_columnas_reales.php  # POST: migración de schema (columnas *_real en pago)
 └── agent/
     ├── heartbeat.php           # POST: recibe heartbeat de agentes remotos
     ├── usb_event.php           # POST: recibe eventos USB (connect/disconnect)
@@ -50,12 +63,16 @@ gyrosfe/
 | `UsbDeviceState` | Estado actual de cada dispositivo USB por agente |
 | `UsbEvent` | Historial de eventos USB (connect/disconnect) |
 | `User` | Usuarios del sistema |
+| `banco_cliente` | Cuentas bancarias del cliente (máx. 2), con `nickname` para identificar su uso (ver más abajo) |
+| `prestamo` | Préstamos otorgados a un cliente: monto, tasa, plazo, fecha, totales |
+| `pago` | Cuotas de cada préstamo: valores programados y valores reales (`*_real`) |
+| `saldo` | Historial de consultas de saldo bancario (agente externo), con fecha/hora exacta |
 
 **Conexión:** `pgsql:host=127.0.0.1;port=5432;dbname=gyros`
 **Connection string MCP:** `postgresql://marco@127.0.0.1:5432/gyros`
 
 > Los nombres de tablas y columnas usan comillas dobles en SQL (case-sensitive en PostgreSQL).
-> PDO devuelve claves de columnas en **minúsculas** en `FETCH_ASSOC` — tener en cuenta al acceder a aliases como `ag_agentid` (no `ag_agentId`).
+> PDO devuelve claves de columnas en **minúsculas** en `FETCH_ASSOC` — tener en cuenta al acceder a aliases como `ag_agentid` (no `ag_agentId`) o `prestamoidprestamo` (no `prestamoIdPrestamo`).
 
 ## Convenciones de Código
 
@@ -71,6 +88,27 @@ gyrosfe/
 2. Muestra tabla con: fecha, agente, dispositivo/serial, cliente asignado
 3. Si no tiene cliente → botón ➕ abre modal de registro
 4. Si tiene cliente → botón 📝 abre modal de edición
+
+## Módulo Financiero (préstamos y cuotas)
+
+- **Creación (`prestamo_crear.php`):** dos modos —
+  - `nuevo`: genera el plan de amortización completo (francesa, cuota fija) desde el mes 1.
+  - `migrar`: para préstamos ya existentes fuera del sistema; recibe `numero_cuota_actual` y `saldo_pendiente_actual`, y genera solo las cuotas restantes desde ese punto.
+- **Edición (`prestamo_editar.php`):** recalcula monto/tasa/plazo y **regenera únicamente las cuotas en estado `pendiente`** (no toca cuotas ya pagadas).
+- **Eliminación (`prestamo_eliminar.php`):** solo permite borrar un préstamo si `fecha_prestamo` es la fecha de hoy (evita borrar préstamos históricos por error).
+- **Estados de cuota (`pago.estado`):** `pendiente`, `pagado`, `vencido`, `parcial`.
+- **Valores reales vs. programados:** cada cuota tiene columnas programadas (`cuota_fija`, `saldo_inicial`, `monto_a_interes`, `monto_a_devolucion_kapital`, `saldo_deudor`, `dias_programado`) y columnas reales (`dias_real`, `interes_real`, `capital_real`, `saldo_deudor_real`), calculadas al momento de marcar la cuota `pagado`/`parcial` en `pago_actualizar.php`, o al ejecutar el débito en `debitar.php`.
+- **Cambiar fecha de una cuota (`pago_fecha.php`):** recalcula en cascada el interés/capital/saldo de esa cuota **y todas las posteriores** del mismo préstamo, usando interés diario (`tasa_interes / 100 / 30`) sobre los días reales transcurridos.
+
+## Integración con Agente Externo (Saldo y Débito)
+
+`consulta_saldo.php` y `debitar.php` no hablan directo con el banco: delegan a un **agente externo (`agent-01`)** que corre en el dispositivo Android/USB asignado al cliente, vía una llamada HTTP a `http://127.0.0.1:8080/consultar-saldo` o `http://127.0.0.1:8080/debitar`.
+
+- **Cómo llega el tráfico a `127.0.0.1:8080`:** un túnel SSH reverso desde `agent-01` hacia este servidor (ver historial de commits `f704e5b`, `e9c2774`) — reemplazó un enfoque anterior con IP de Tailscale.
+- **Requisito:** el cliente debe tener una cuenta en `banco_cliente` con `nickname = 'pago'` y `isActive = true`; ahí se guardan `usuario`/`key` (credenciales de banca móvil) y `nombre` (nombre del titular).
+- **Timeouts:** 180s para consulta de saldo, 280s para débito — el agente puede tardar (interactúa con una app bancaria real).
+- **Historial:** cada consulta de saldo exitosa se inserta en la tabla `saldo` con `fecha_hora` exacta; cada débito exitoso graba `nro_envio_transferencia` en la cuota y la marca `pagado` (además de calcular sus valores reales).
+- **⚠️ Riesgo operativo (sin resolver):** el túnel SSH reverso es manual — no hay `autossh`, ni unidad `systemd`, ni cronjob que lo supervise o reintente si cae. Tampoco hay alerta: una caída del túnel se manifiesta como que `consulta_saldo`/`debitar` empiezan a fallar con "No se pudo contactar al agente", sin ningún aviso previo. El servidor ya corre `zabbix-agent` para otro monitoreo — es el candidato natural para agregar un chequeo del puerto `127.0.0.1:8080`.
 
 ## URLs del Sistema
 
