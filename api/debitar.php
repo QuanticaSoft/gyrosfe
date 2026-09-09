@@ -85,7 +85,25 @@ try {
         jsonErr('No se encontró cuenta bancaria con nickname "pago"', 404);
     }
 
-    // 4. Llamar al agente
+    // 4. Resolver el agente activo para este dispositivo (soporta múltiples
+    //    agentes en paralelo, cada uno tunelado a un puerto local distinto)
+    $stmtPort = $pdo->prepare('
+        SELECT a."tunnelPort"
+        FROM "UsbDeviceState" uds
+        JOIN "Agent" a ON a.id = uds."agentId"
+        WHERE uds.serial = :serial AND uds.status = \'connected\'
+        ORDER BY uds."lastChangeAt" DESC
+        LIMIT 1
+    ');
+    $stmtPort->execute([':serial' => $cliente['dispositivo']]);
+    $agentRow = $stmtPort->fetch(PDO::FETCH_ASSOC);
+
+    if (!$agentRow || empty($agentRow['tunnelPort'])) {
+        jsonErr('Dispositivo no está conectado a ningún agente activo', 502);
+    }
+    $agentPort = (int) $agentRow['tunnelPort'];
+
+    // 5. Llamar al agente
     $payload = json_encode([
         'usuario'        => $cuenta['usuario']  ?? '',
         'password'       => $cuenta['key']      ?? '',
@@ -95,7 +113,7 @@ try {
         'fecha_pago'     => $pago['fecha_pago'],
     ]);
 
-    $ch = curl_init('http://127.0.0.1:8080/debitar');
+    $ch = curl_init("http://127.0.0.1:{$agentPort}/debitar");
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_POST           => true,
@@ -119,7 +137,7 @@ try {
 
     $numeroEnvio = (string) ($agentData['numero_envio'] ?? '');
 
-    // 5. Calcular dias_real y valores reales de amortización
+    // 6. Calcular dias_real y valores reales de amortización
     $today = new DateTimeImmutable('today');
 
     if ((int) $pago['mes'] === 1) {
@@ -149,7 +167,7 @@ try {
     $capitalReal = round(max(0.0, $cuotaFija - $interesReal), 2);
     $saldoReal   = round(max(0.0, $saldoIni - $capitalReal), 2);
 
-    // 6. Registrar el débito con valores reales en la cuota
+    // 7. Registrar el débito con valores reales en la cuota
     $stmtUpd = $pdo->prepare('
         UPDATE "pago"
         SET "nro_envio_transferencia" = :nro,

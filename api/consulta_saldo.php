@@ -65,7 +65,25 @@ try {
         jsonErr('No se encontró cuenta bancaria con nickname "pago"', 404);
     }
 
-    // 3. Llamar al agente
+    // 3. Resolver el agente activo para este dispositivo (soporta múltiples
+    //    agentes en paralelo, cada uno tunelado a un puerto local distinto)
+    $stmtPort = $pdo->prepare('
+        SELECT a."tunnelPort"
+        FROM "UsbDeviceState" uds
+        JOIN "Agent" a ON a.id = uds."agentId"
+        WHERE uds.serial = :serial AND uds.status = \'connected\'
+        ORDER BY uds."lastChangeAt" DESC
+        LIMIT 1
+    ');
+    $stmtPort->execute([':serial' => $cliente['dispositivo']]);
+    $agentRow = $stmtPort->fetch(PDO::FETCH_ASSOC);
+
+    if (!$agentRow || empty($agentRow['tunnelPort'])) {
+        jsonErr('Dispositivo no está conectado a ningún agente activo', 502);
+    }
+    $agentPort = (int) $agentRow['tunnelPort'];
+
+    // 4. Llamar al agente
     $payload = json_encode([
         'usuario'        => $cuenta['usuario']  ?? '',
         'password'       => $cuenta['key']       ?? '',
@@ -73,7 +91,7 @@ try {
         'dispositivo'    => $cliente['dispositivo'],
     ]);
 
-    $ch = curl_init('http://127.0.0.1:8080/consultar-saldo');
+    $ch = curl_init("http://127.0.0.1:{$agentPort}/consultar-saldo");
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_POST           => true,
@@ -95,13 +113,13 @@ try {
         jsonErr($agentData['error'] ?? 'Error desconocido en agente', 500);
     }
 
-    // 4. Normalizar saldo (puede venir como "1.250,50" o "1250.50")
+    // 5. Normalizar saldo (puede venir como "1.250,50" o "1250.50")
     $saldoRaw = (string) ($agentData['saldo'] ?? '0');
     $saldoRaw = str_replace(',', '.', $saldoRaw);
     $saldoRaw = preg_replace('/\.(?=.*\.)/', '', $saldoRaw);
     $saldo    = round((float) $saldoRaw, 2);
 
-    // 5. Insertar en tabla saldo con fecha y hora exacta
+    // 6. Insertar en tabla saldo con fecha y hora exacta
     $stmtIns = $pdo->prepare('
         INSERT INTO saldo (cliente_id, saldo, fecha_hora, "id_pago", "tipo")
         VALUES (:cid, :saldo, NOW(), :idpago, :tipo)
