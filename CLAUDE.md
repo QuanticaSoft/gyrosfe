@@ -56,7 +56,7 @@ gyrosfe/
 **Tablas:**
 | Tabla | Descripción |
 |-------|-------------|
-| `Agent` | Agentes remotos registrados (`agentId`, `hostname`, `lastSeen`) |
+| `Agent` | Agentes remotos registrados (`agentId`, `hostname`, `lastSeen`, `tunnelPort` — puerto local del túnel SSH reverso de ese agente, usado por `consulta_saldo.php`/`debitar.php`) |
 | `Cliente` | Clientes registrados con su dispositivo asignado |
 | `Dispositivos` | Catálogo de dispositivos |
 | `Heartbeat` | Latidos de los agentes (estado online) |
@@ -100,15 +100,24 @@ gyrosfe/
 - **Valores reales vs. programados:** cada cuota tiene columnas programadas (`cuota_fija`, `saldo_inicial`, `monto_a_interes`, `monto_a_devolucion_kapital`, `saldo_deudor`, `dias_programado`) y columnas reales (`dias_real`, `interes_real`, `capital_real`, `saldo_deudor_real`), calculadas al momento de marcar la cuota `pagado`/`parcial` en `pago_actualizar.php`, o al ejecutar el débito en `debitar.php`.
 - **Cambiar fecha de una cuota (`pago_fecha.php`):** recalcula en cascada el interés/capital/saldo de esa cuota **y todas las posteriores** del mismo préstamo, usando interés diario (`tasa_interes / 100 / 30`) sobre los días reales transcurridos.
 
-## Integración con Agente Externo (Saldo y Débito)
+## Integración con Agentes Externos (Saldo y Débito)
 
-`consulta_saldo.php` y `debitar.php` no hablan directo con el banco: delegan a un **agente externo (`agent-01`)** que corre en el dispositivo Android/USB asignado al cliente, vía una llamada HTTP a `http://127.0.0.1:8080/consultar-saldo` o `http://127.0.0.1:8080/debitar`.
+`consulta_saldo.php` y `debitar.php` no hablan directo con el banco: delegan a un **agente externo** que corre en el dispositivo Android/USB asignado al cliente. **Desde 2026-09-09 puede haber más de un agente activo en paralelo** (hoy: `cbb01` en Cochabamba, `scz01` en Santa Cruz, cada uno con su propio teléfono) — el puerto ya **no está hardcodeado**, se resuelve en runtime:
 
-- **Cómo llega el tráfico a `127.0.0.1:8080`:** un túnel SSH reverso desde `agent-01` hacia este servidor (ver historial de commits `f704e5b`, `e9c2774`) — reemplazó un enfoque anterior con IP de Tailscale.
+```php
+SELECT a."tunnelPort" FROM "UsbDeviceState" uds
+JOIN "Agent" a ON a.id = uds."agentId"
+WHERE uds.serial = :serial AND uds.status = 'connected'
+ORDER BY uds."lastChangeAt" DESC LIMIT 1
+```
+
+es decir: el serial del dispositivo del cliente (`Cliente.dispositivo`) determina, vía `UsbDeviceState` (actualizada en vivo por `agent/usb_event.php`), qué agente lo tiene conectado *ahora mismo* y por ende a qué `http://127.0.0.1:<tunnelPort>/consultar-saldo` o `/debitar` llamar. Si el mismo teléfono se mueve físicamente de un agente a otro, el ruteo lo sigue automáticamente.
+
+- **Cómo llega el tráfico a `127.0.0.1:<tunnelPort>`:** un túnel SSH reverso desde cada agente hacia este servidor, cada uno a su propio puerto (`Agent.tunnelPort`: `cbb01`=8080, `scz01`=8081) — ver historial de commits `f704e5b`, `e9c2774` (reemplazó un enfoque anterior con IP de Tailscale) y `migrations/2026_agent_tunnel_port.sql` (soporte multi-agente).
 - **Requisito:** el cliente debe tener una cuenta en `banco_cliente` con `nickname = 'pago'` y `isActive = true`; ahí se guardan `usuario`/`key` (credenciales de banca móvil) y `nombre` (nombre del titular).
 - **Timeouts:** 180s para consulta de saldo, 280s para débito — el agente puede tardar (interactúa con una app bancaria real).
 - **Historial:** cada consulta de saldo exitosa se inserta en la tabla `saldo` con `fecha_hora` exacta; cada débito exitoso graba `nro_envio_transferencia` en la cuota y la marca `pagado` (además de calcular sus valores reales).
-- **⚠️ Riesgo operativo (sin resolver):** el túnel SSH reverso es manual — no hay `autossh`, ni unidad `systemd`, ni cronjob que lo supervise o reintente si cae. Tampoco hay alerta: una caída del túnel se manifiesta como que `consulta_saldo`/`debitar` empiezan a fallar con "No se pudo contactar al agente", sin ningún aviso previo. El servidor ya corre `zabbix-agent` para otro monitoreo — es el candidato natural para agregar un chequeo del puerto `127.0.0.1:8080`.
+- **Supervisión del túnel:** cada agente lo corre bajo `systemd` (`Restart=always`) con un script de limpieza de sesiones huérfanas (`gyros-tunnel-cleanup.sh`) — no es un proceso manual sin supervisión. Limitación real conocida: ese script no puede identificar por puerto qué sesión SSH huérfana matar en flamenco (`ss`/`lsof` no exponen esa info a un usuario sin privilegios en este host), así que solo actúa cuando hay una única sesión huérfana candidata; con ambigüedad (2+ agentes con problemas a la vez) no hace nada y depende de `Restart=always` + timeout de TCP. Sigue sin haber alerta activa si un túnel cae — una caída se manifiesta como que `consulta_saldo`/`debitar` empiezan a fallar con "No se pudo contactar al agente" para los clientes de ese agente específico. El servidor ya corre `zabbix-agent` para otro monitoreo — candidato natural para agregar un chequeo por agente/puerto (sigue sin implementarse).
 
 ## URLs del Sistema
 
